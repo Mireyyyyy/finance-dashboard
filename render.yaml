@@ -2,7 +2,7 @@ services:
   - type: web
     name: finance-dashboard
     runtime: node
-    repo: https://github.com/YOUR_USERNAME/finance-dashboard
+    repo: https://github.com/Mireyyyyy/finance-dashboard
     plan: free
     buildCommand: npm install
     startCommand: node server.js
