@@ -1,0 +1,12 @@
+{
+  "name": "finance-dashboard",
+  "version": "1.0.0",
+  "description": "财务支出看板 - 多设备同步",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}

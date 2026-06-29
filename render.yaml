@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: finance-dashboard
+    runtime: node
+    repo: https://github.com/YOUR_USERNAME/finance-dashboard
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/status
+    envVars:
+      - key: NODE_ENV
+        value: production
