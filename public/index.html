@@ -18,6 +18,10 @@ body { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
 .sync-status .dot.yellow { background: #faad14; animation: pulse 1.2s infinite; }
 .sync-status .dot.red { background: #ff4d4f; }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.month-selector { display: flex; gap: 8px; justify-content: center; padding: 14px 20px 8px; flex-wrap: wrap; }
+.month-btn { padding: 7px 22px; border: 1px solid #d9d9d9; border-radius: 20px; background: white; cursor: pointer; font-size: 13px; font-family: inherit; transition: 0.15s; font-weight: 500; }
+.month-btn:hover { border-color: #1890ff; color: #1890ff; }
+.month-btn.active { background: #1890ff; color: white; border-color: #1890ff; }
 .container { max-width: 1200px; margin: 0 auto; padding: 16px 20px; }
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 16px; }
 .card { background: white; border-radius: 10px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: center; }
@@ -105,24 +109,26 @@ tr:hover .del-btn { opacity: 0.6; }
   </div>
 </div>
 
+<div class="month-selector" id="monthSelector"></div>
+
 <div class="container">
 
 <div class="cards" id="cardsContainer"></div>
 
 <div class="balance-row">
   <div class="balance-edit">
-    <label>初始余额</label>
+    <label id="balanceLabel">6月初始余额</label>
     <input type="number" id="initBalanceInput" step="0.01">
     <button class="btn btn-primary btn-sm" onclick="updateFromBalanceChange()">更新</button>
   </div>
 </div>
 
 <div class="charts-row">
-  <div class="chart-box"><h3>分类支出占比</h3><canvas id="pieChart"></canvas></div>
-  <div class="chart-box"><h3>每日支出趋势</h3><canvas id="barChart"></canvas></div>
+  <div class="chart-box"><h3>分类支出占比（<span id="pieChartMonth">6月</span>）</h3><canvas id="pieChart"></canvas></div>
+  <div class="chart-box"><h3>每日支出趋势（<span id="barChartMonth">6月</span>）</h3><canvas id="barChart"></canvas></div>
 </div>
 
-<div class="chart-full"><h3>余额变化趋势</h3><canvas id="lineChart"></canvas></div>
+<div class="chart-full"><h3>余额变化趋势（<span id="lineChartMonth">6月</span>）</h3><canvas id="lineChart"></canvas></div>
 
 <div class="section">
   <div class="section-header">
@@ -135,7 +141,7 @@ tr:hover .del-btn { opacity: 0.6; }
 <div class="section">
   <div class="section-header"><h3>📆 月度汇总 <span class="badge">自动计算</span></h3></div>
   <div style="overflow-x:auto">
-    <table><thead><tr><th>月份</th><th>天数</th><th>饮食</th><th>交通</th><th>水电</th><th>其他</th><th>月合计</th><th>日均</th></tr></thead>
+    <table><thead><tr><th>月份</th><th>天数</th><th>初始余额</th><th>饮食</th><th>交通</th><th>水电</th><th>其他</th><th>月合计</th><th>日均</th></tr></thead>
       <tbody id="monthlyBody"></tbody>
     </table>
   </div>
@@ -176,12 +182,13 @@ tr:hover .del-btn { opacity: 0.6; }
 
 <script>
 // ========== CONFIG ==========
-const SYNC_INTERVAL = 3000; // ms between sync checks
+const SYNC_INTERVAL = 3000;
 
 // ========== DATA ==========
 let dailyData = [];
 let weeklyUtils = { w1: 21, w2: 45, w3: 0, w4: 0 };
-let initBalance = 2370;
+let monthlyBudgets = { '2026-06': 2370, '2026-07': 2370 };
+let currentMonth = '2026-06';
 let chartInstances = {};
 let lastSavedHash = '';
 let isSyncing = false;
@@ -216,15 +223,31 @@ const ORIGINAL_DATA = [
   {d:"2026-06-28",w:"日",fw:37,fh:37,fs:74,t:6,o:70,total:195,rem:1130.05,note:"买东西"},
   {d:"2026-06-29",w:"一",fw:0,fh:0,fs:0,t:2,o:0,total:2,rem:1128.05,note:""},
   {d:"2026-06-30",w:"二",fw:0,fh:0,fs:0,t:0,o:0,total:0,rem:1128.05,note:""},
-  {d:"2026-07-01",w:"三",fw:0,fh:0,fs:0,t:0,o:0,total:0,rem:1128.05,note:""},
-  {d:"2026-07-02",w:"四",fw:0,fh:0,fs:0,t:0,o:0,total:0,rem:1128.05,note:""},
-  {d:"2026-07-03",w:"五",fw:0,fh:0,fs:0,t:0,o:0,total:0,rem:1128.05,note:""},
-  {d:"2026-07-04",w:"六",fw:0,fh:0,fs:0,t:0,o:0,total:0,rem:1128.05,note:""}
+  {d:"2026-07-01",w:"三",fw:0,fh:0,fs:0,t:0,o:0,total:0,rem:2370,note:""},
+  {d:"2026-07-02",w:"四",fw:0,fh:0,fs:0,t:0,o:0,total:0,rem:2370,note:""},
+  {d:"2026-07-03",w:"五",fw:0,fh:0,fs:0,t:0,o:0,total:0,rem:2370,note:""},
+  {d:"2026-07-04",w:"六",fw:0,fh:0,fs:0,t:0,o:0,total:0,rem:2370,note:""}
 ];
+
+// ========== HELPERS ==========
+function getMonthDisplay(monthKey) {
+  return parseInt(monthKey.split('-')[1]) + '月';
+}
+
+function getWeekMonth(wi) {
+  return WEEK_RANGES[wi][1].slice(0, 7);
+}
+
+function getAvailableMonths() {
+  const months = new Set();
+  dailyData.forEach(d => months.add(d.d.slice(0, 7)));
+  WEEK_KEYS.forEach((k, i) => months.add(getWeekMonth(i)));
+  return Array.from(months).sort();
+}
 
 // ========== DATA HASH ==========
 function computeHash() {
-  const str = JSON.stringify({ d: dailyData, w: weeklyUtils, b: initBalance });
+  const str = JSON.stringify({ d: dailyData, w: weeklyUtils, b: monthlyBudgets });
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const c = str.charCodeAt(i);
@@ -246,7 +269,7 @@ async function syncToServer() {
   if (isSyncing) return;
   isSyncing = true;
   try {
-    const payload = { data: { dailyData, weeklyUtils, initBalance } };
+    const payload = { data: { dailyData, weeklyUtils, monthlyBudgets, currentMonth } };
     const res = await fetch('/api/data', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -268,21 +291,18 @@ async function syncFromServer() {
     const res = await fetch('/api/data');
     const json = await res.json();
     if (json.success && json.data && json.data.data) {
-      const serverHash = JSON.stringify(json.data).length + ''; // crude comparison
       const localHash = computeHash();
       if (localHash !== lastSavedHash) {
-        // local has unsaved changes, skip pull
         return false;
       }
-      // Check if server data differs from what we have
-      const serverStr = JSON.stringify({ d: json.data.data.dailyData, w: json.data.data.weeklyUtils, b: json.data.data.initBalance });
-      const currentStr = JSON.stringify({ d: dailyData, w: weeklyUtils, b: initBalance });
+      const serverData = json.data.data;
+      const serverStr = JSON.stringify({ d: serverData.dailyData, w: serverData.weeklyUtils, b: serverData.monthlyBudgets });
+      const currentStr = JSON.stringify({ d: dailyData, w: weeklyUtils, b: monthlyBudgets });
       if (serverStr !== currentStr && !isLocalChange) {
-        // Server has newer data - apply it
-        dailyData = json.data.data.dailyData;
-        weeklyUtils = json.data.data.weeklyUtils;
-        initBalance = json.data.data.initBalance;
-        document.getElementById('initBalanceInput').value = initBalance.toFixed(2);
+        dailyData = serverData.dailyData;
+        weeklyUtils = serverData.weeklyUtils;
+        monthlyBudgets = serverData.monthlyBudgets || { '2026-06': 2370, '2026-07': 2370 };
+        currentMonth = serverData.currentMonth || getAvailableMonths()[0] || '2026-06';
         render();
         setSyncStatus('green', '已同步');
         toast('检测到其他设备的更改，已自动更新');
@@ -303,22 +323,13 @@ async function manualSync() {
 }
 
 function startSync() {
-  // Initial: load from server or localStorage
   loadFromServer().then(changed => {
     if (!changed) loadLocalFallback();
-    document.getElementById('initBalanceInput').value = initBalance.toFixed(2);
     render();
-    // Push current data to server
     syncToServer();
-    // Start polling
     setInterval(async () => {
-      const before = computeHash();
       isLocalChange = false;
       await syncFromServer();
-      const after = computeHash();
-      if (before !== after) {
-        // Data changed from server, already re-rendered in syncFromServer
-      }
     }, SYNC_INTERVAL);
   });
 }
@@ -332,7 +343,8 @@ async function loadFromServer() {
       if (sd.dailyData && sd.dailyData.length > 0) {
         dailyData = sd.dailyData;
         weeklyUtils = sd.weeklyUtils || { w1:21, w2:45, w3:0, w4:0 };
-        initBalance = sd.initBalance || 2370;
+        monthlyBudgets = sd.monthlyBudgets || { '2026-06': 2370, '2026-07': 2370 };
+        currentMonth = sd.currentMonth || '2026-06';
         lastSavedHash = computeHash();
         setSyncStatus('green', '已同步');
         return true;
@@ -352,22 +364,22 @@ function loadLocalFallback() {
       const p = JSON.parse(saved);
       dailyData = p.data || [];
       weeklyUtils = p.weeklyUtils || { w1:21, w2:45, w3:0, w4:0 };
-      initBalance = p.initBalance || 2370;
+      monthlyBudgets = p.monthlyBudgets || { '2026-06': 2370, '2026-07': 2370 };
+      currentMonth = p.currentMonth || '2026-06';
       if (dailyData.length > 0) return;
     }
   } catch(e) {}
   dailyData = ORIGINAL_DATA.map(d => ({...d}));
   weeklyUtils = { w1: 21, w2: 45, w3: 0, w4: 0 };
-  initBalance = 2370;
+  monthlyBudgets = { '2026-06': 2370, '2026-07': 2370 };
+  currentMonth = '2026-06';
 }
 
-// ========== SAVE (local + server) ==========
+// ========== SAVE ==========
 function saveData() {
-  // Save locally
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
-    data: dailyData, weeklyUtils, initBalance
+    data: dailyData, weeklyUtils, monthlyBudgets, currentMonth
   }));
-  // Push to server
   isLocalChange = true;
   syncToServer();
 }
@@ -394,11 +406,79 @@ function recalc() {
         break;
       }
     }
-    const dayExpense = d.total + utilsToday;
-    d.rem = i === 0
-      ? Math.round((initBalance - dayExpense) * 100) / 100
-      : Math.round((dailyData[i-1].rem - dayExpense) * 100) / 100;
+    const dayExpense = Math.round((d.total + utilsToday) * 100) / 100;
+    const monthKey = d.d.slice(0, 7);
+    if (i === 0 || dailyData[i-1].d.slice(0, 7) !== monthKey) {
+      d.rem = Math.round(((monthlyBudgets[monthKey] || 0) - dayExpense) * 100) / 100;
+    } else {
+      d.rem = Math.round((dailyData[i-1].rem - dayExpense) * 100) / 100;
+    }
   }
+}
+
+function getMonthSummary(monthKey) {
+  const monthData = dailyData.filter(d => d.d.startsWith(monthKey));
+  const monthUtilsKeys = WEEK_KEYS.filter((k, i) => getWeekMonth(i) === monthKey);
+  const monthUtils = monthUtilsKeys.reduce((s, k) => s + (parseFloat(weeklyUtils[k])||0), 0);
+
+  const dailyTotals = monthData.map(d => d.total);
+  const withData = monthData.filter(d => d.total > 0);
+  const totalExpense = dailyTotals.reduce((s,v) => s+v, 0) + monthUtils;
+  const recordDays = withData.length;
+  const dailyAvg = recordDays > 0 ? totalExpense / recordDays : 0;
+  const maxDaily = withData.length > 0 ? Math.max(...withData.map(d => d.total)) : 0;
+  const budget = monthlyBudgets[monthKey] || 0;
+  const lastDay = monthData.length > 0 ? monthData[monthData.length-1] : null;
+  const curBalance = lastDay ? lastDay.rem : budget;
+  const usageRatio = budget > 0 ? (totalExpense / budget) * 100 : 0;
+
+  let food = 0, transport = 0, other = 0;
+  monthData.forEach(d => { food += d.fs; transport += d.t; other += d.o; });
+  const catTotal = food + transport + monthUtils + other;
+  const cats = [
+    { n: '饮食', amt: Math.round(food*100)/100, pct: catTotal > 0 ? Math.round(food/catTotal*1000)/10 : 0, color: CAT_COLORS.food },
+    { n: '交通', amt: Math.round(transport*100)/100, pct: catTotal > 0 ? Math.round(transport/catTotal*1000)/10 : 0, color: CAT_COLORS.transport },
+    { n: '水电', amt: Math.round(monthUtils*100)/100, pct: catTotal > 0 ? Math.round(monthUtils/catTotal*1000)/10 : 0, color: CAT_COLORS.utilities },
+    { n: '其他', amt: Math.round(other*100)/100, pct: catTotal > 0 ? Math.round(other/catTotal*1000)/10 : 0, color: CAT_COLORS.other }
+  ];
+
+  return {
+    totalExpense: Math.round(totalExpense*100)/100,
+    dailyAvg: Math.round(dailyAvg*100)/100, recordDays,
+    maxDaily: Math.round(maxDaily*100)/100,
+    curBalance: Math.round(curBalance*100)/100,
+    usageRatio: Math.round(usageRatio*10)/10,
+    cats, totalUtils: Math.round(monthUtils*100)/100, budget
+  };
+}
+
+function getAllMonthsSummary() {
+  const monthMap = {};
+  dailyData.forEach(d => {
+    const m = d.d.slice(0, 7);
+    if (!monthMap[m]) monthMap[m] = { label: m, f: 0, t: 0, u: 0, o: 0, days: 0, total: 0 };
+    monthMap[m].f += d.fs;
+    monthMap[m].t += d.t;
+    monthMap[m].o += d.o;
+    monthMap[m].total += d.total;
+    if (d.total > 0) monthMap[m].days++;
+  });
+  WEEK_KEYS.forEach((k, i) => {
+    const m = getWeekMonth(i);
+    if (monthMap[m]) {
+      const uVal = parseFloat(weeklyUtils[k]) || 0;
+      monthMap[m].u += uVal;
+      monthMap[m].total += uVal;
+    }
+  });
+  return Object.values(monthMap).map(m => ({
+    ...m, f: Math.round(m.f*100)/100, t: Math.round(m.t*100)/100,
+    u: Math.round(m.u*100)/100, o: Math.round(m.o*100)/100,
+    total: Math.round(m.total*100)/100,
+    display: getMonthDisplay(m.label),
+    dailyAvg: m.days > 0 ? Math.round(m.total/m.days*100)/100 : 0,
+    budget: monthlyBudgets[m.label] || 0
+  })).sort((a,b) => a.label.localeCompare(b.label));
 }
 
 function getWeekLabel(dateStr) {
@@ -411,32 +491,100 @@ function getWeekLabel(dateStr) {
   return fmt(start) + '-' + fmt(end);
 }
 
-function getSummary() {
-  const totalUtils = Object.values(weeklyUtils).reduce((s, v) => s + (parseFloat(v)||0), 0);
-  const dailyTotals = dailyData.map(d => d.total);
-  const withData = dailyData.filter(d => d.total > 0);
-  const totalExpense = dailyTotals.reduce((s,v) => s+v, 0) + totalUtils;
-  const recordDays = withData.length;
-  const dailyAvg = recordDays > 0 ? totalExpense / recordDays : 0;
-  const maxDaily = withData.length > 0 ? Math.max(...withData.map(d => d.total)) : 0;
-  const curBalance = dailyData.length > 0 ? dailyData[dailyData.length-1].rem : initBalance;
-  const usageRatio = initBalance > 0 ? (totalExpense / initBalance) * 100 : 0;
+// ========== RENDER ==========
+function switchMonth(monthKey) {
+  currentMonth = monthKey;
+  render();
+}
 
-  let food = 0, transport = 0, other = 0;
-  dailyData.forEach(d => { food += d.fs; transport += d.t; other += d.o; });
-  const catTotal = food + transport + totalUtils + other;
-  const cats = [
-    { n: '饮食', amt: Math.round(food*100)/100, pct: catTotal > 0 ? Math.round(food/catTotal*1000)/10 : 0, color: CAT_COLORS.food },
-    { n: '交通', amt: Math.round(transport*100)/100, pct: catTotal > 0 ? Math.round(transport/catTotal*1000)/10 : 0, color: CAT_COLORS.transport },
-    { n: '水电', amt: Math.round(totalUtils*100)/100, pct: catTotal > 0 ? Math.round(totalUtils/catTotal*1000)/10 : 0, color: CAT_COLORS.utilities },
-    { n: '其他', amt: Math.round(other*100)/100, pct: catTotal > 0 ? Math.round(other/catTotal*1000)/10 : 0, color: CAT_COLORS.other }
-  ];
+function renderMonthSelector() {
+  const months = getAvailableMonths();
+  document.getElementById('monthSelector').innerHTML = months.length > 1
+    ? months.map(m => `<button class="month-btn ${m === currentMonth ? 'active' : ''}" onclick="switchMonth('${m}')">${getMonthDisplay(m)}</button>`).join('')
+    : '';
+}
 
+function render() {
+  recalc();
+  renderMonthSelector();
+
+  // Update balance input for current month
+  document.getElementById('initBalanceInput').value = (monthlyBudgets[currentMonth] || 0).toFixed(2);
+  document.getElementById('balanceLabel').textContent = getMonthDisplay(currentMonth) + '初始余额';
+
+  const s = getMonthSummary(currentMonth);
+
+  // Cards
+  document.getElementById('cardsContainer').innerHTML = `
+    <div class="card red"><div class="label">${getMonthDisplay(currentMonth)}总支出</div><div class="value">¥${s.totalExpense.toFixed(2)}</div><div class="sub">含水电 ¥${s.totalUtils.toFixed(2)}</div></div>
+    <div class="card orange"><div class="label">日均支出</div><div class="value">¥${s.dailyAvg.toFixed(2)}</div><div class="sub">含水电</div></div>
+    <div class="card purple"><div class="label">单日最高</div><div class="value">¥${s.maxDaily.toFixed(2)}</div><div class="sub">最高单日消费</div></div>
+    <div class="card blue"><div class="label">初始余额</div><div class="value">¥${s.budget.toFixed(2)}</div><div class="sub">${getMonthDisplay(currentMonth)}预算</div></div>
+    <div class="card green"><div class="label">当前余额</div><div class="value">¥${s.curBalance.toFixed(2)}</div><div class="sub">剩余可支配</div></div>
+    <div class="card teal"><div class="label">使用比率</div><div class="value">${s.usageRatio}%</div><div class="sub">已用 / 预算</div></div>
+  `;
+
+  // Chart month labels
+  document.getElementById('pieChartMonth').textContent = getMonthDisplay(currentMonth);
+  document.getElementById('barChartMonth').textContent = getMonthDisplay(currentMonth);
+  document.getElementById('lineChartMonth').textContent = getMonthDisplay(currentMonth);
+
+  // Weekly utils (filtered by current month)
+  const visibleWeekKeys = WEEK_KEYS.filter((k, i) => getWeekMonth(i) === currentMonth);
+  const wuTotal = visibleWeekKeys.reduce((s, k) => s + (parseFloat(weeklyUtils[k])||0), 0);
+  if (visibleWeekKeys.length > 0) {
+    document.getElementById('weeklyUtilsContainer').innerHTML =
+      visibleWeekKeys.map(k => {
+        const i = WEEK_KEYS.indexOf(k);
+        return `<div class="wu-item"><div class="wu-label">${WEEK_LABELS[i]}</div><input class="wu-input" type="number" step="0.01" value="${weeklyUtils[k]||0}" data-key="${k}" onchange="updateWeeklyUtil('${k}', this.value)"></div>`;
+      }).join('') +
+      `<div class="wu-item" style="background:#e6fffb;"><div class="wu-label">水电合计</div><div class="wu-total">¥${wuTotal.toFixed(2)}</div></div>`;
+  } else {
+    document.getElementById('weeklyUtilsContainer').innerHTML = '<p style="font-size:11px;color:#999;">本月无水电支出</p>';
+  }
+
+  // Daily table (filtered by current month)
+  const monthIndices = dailyData.reduce((acc, d, i) => {
+    if (d.d.startsWith(currentMonth)) acc.push(i);
+    return acc;
+  }, []);
+  const monthData = monthIndices.map(i => dailyData[i]);
+
+  document.getElementById('dailyBody').innerHTML = monthIndices.length > 0
+    ? monthIndices.map(origIdx => {
+        const d = dailyData[origIdx];
+        const h = d.total > 0;
+        return `<tr>
+          <td><button class="del-btn" onclick="deleteRow(${origIdx})">×</button></td>
+          <td><input class="editable" type="text" value="${d.d}" onchange="editDate(${origIdx}, this.value)"></td>
+          <td>${d.w?'周'+d.w:''}</td>
+          <td><input class="editable" type="number" step="0.01" value="${d.fw||''}" onchange="editCell(${origIdx},'fw',this.value)"></td>
+          <td><input class="editable" type="number" step="0.01" value="${d.fh||''}" onchange="editCell(${origIdx},'fh',this.value)"></td>
+          <td class="calc">${d.fs?'¥'+d.fs.toFixed(2):'-'}</td>
+          <td><input class="editable" type="number" step="0.01" value="${d.t||''}" onchange="editCell(${origIdx},'t',this.value)"></td>
+          <td><input class="editable" type="number" step="0.01" value="${d.o||''}" onchange="editCell(${origIdx},'o',this.value)"></td>
+          <td class="calc"><strong>${h?'¥'+d.total.toFixed(2):'-'}</strong></td>
+          <td class="calc">¥${d.rem.toFixed(2)}</td>
+          <td><input class="editable editable-note" type="text" value="${d.note||''}" onchange="editCell(${origIdx},'note',this.value)" placeholder="备注"></td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="11" style="color:#999;padding:12px;">暂无数据</td></tr>';
+
+  // Monthly table (ALL months)
+  const allMonths = getAllMonthsSummary();
+  document.getElementById('monthlyBody').innerHTML = allMonths.length
+    ? allMonths.map(m => `<tr><td><strong>${m.display}</strong></td><td>${m.days}天</td><td>¥${m.budget.toFixed(2)}</td><td>¥${m.f.toFixed(2)}</td><td>¥${m.t.toFixed(2)}</td><td>${m.u?'¥'+m.u.toFixed(2):'-'}</td><td>¥${m.o.toFixed(2)}</td><td><strong>¥${m.total.toFixed(2)}</strong></td><td>¥${m.dailyAvg.toFixed(2)}</td></tr>`).join('')
+    : '<tr><td colspan="9" style="color:#999;padding:12px;">暂无数据</td></tr>';
+
+  // Weekly table (all weeks)
   const weekMap = {};
   dailyData.forEach(d => {
     const wl = getWeekLabel(d.d);
     if (!weekMap[wl]) weekMap[wl] = { label: wl, f: 0, t: 0, u: 0, o: 0, total: 0 };
-    weekMap[wl].f += d.fs; weekMap[wl].t += d.t; weekMap[wl].o += d.o; weekMap[wl].total += d.total;
+    weekMap[wl].f += d.fs;
+    weekMap[wl].t += d.t;
+    weekMap[wl].o += d.o;
+    weekMap[wl].total += d.total;
   });
   WEEK_KEYS.forEach((k, i) => {
     const label = getWeekLabel(WEEK_RANGES[i][0]);
@@ -450,104 +598,23 @@ function getSummary() {
     u: Math.round(w.u*100)/100, o: Math.round(w.o*100)/100, total: Math.round(w.total*100)/100
   }));
   weeks.sort((a,b) => a.label.localeCompare(b.label));
-
-  // Monthly breakdown
-  const monthMap = {};
-  dailyData.forEach(d => {
-    const m = d.d.slice(0,7);
-    if (!monthMap[m]) monthMap[m] = { label: m, f: 0, t: 0, u: 0, o: 0, days: 0, total: 0 };
-    monthMap[m].f += d.fs;
-    monthMap[m].t += d.t;
-    monthMap[m].o += d.o;
-    monthMap[m].total += d.total;
-    if (d.total > 0) monthMap[m].days++;
-  });
-  // Add weekly utilities to months
-  WEEK_KEYS.forEach((k, i) => {
-    const r = WEEK_RANGES[i];
-    const m = r[0].slice(0,7);
-    if (monthMap[m]) {
-      const uVal = parseFloat(weeklyUtils[k]) || 0;
-      monthMap[m].u += uVal;
-      monthMap[m].total += uVal;
-    }
-  });
-  const monthNames = { '2026-06': '6月', '2026-07': '7月', '2026-08': '8月', '2026-09': '9月', '2026-10': '10月', '2026-11': '11月', '2026-12': '12月' };
-  const months = Object.values(monthMap).map(m => ({
-    ...m, f: Math.round(m.f*100)/100, t: Math.round(m.t*100)/100,
-    u: Math.round(m.u*100)/100, o: Math.round(m.o*100)/100,
-    total: Math.round(m.total*100)/100,
-    display: monthNames[m.label] || m.label,
-    dailyAvg: m.days > 0 ? Math.round(m.total/m.days*100)/100 : 0
-  }));
-  months.sort((a,b) => a.label.localeCompare(b.label));
-
-  return {
-    totalExpense: Math.round(totalExpense*100)/100,
-    dailyAvg: Math.round(dailyAvg*100)/100, recordDays,
-    maxDaily: Math.round(maxDaily*100)/100,
-    curBalance: Math.round(curBalance*100)/100,
-    usageRatio: Math.round(usageRatio*10)/10,
-    cats, weeks, months, totalUtils: Math.round(totalUtils*100)/100
-  };
-}
-
-// ========== RENDER ==========
-function render() {
-  recalc();
-  const s = getSummary();
-  document.getElementById('cardsContainer').innerHTML = `
-    <div class="card red"><div class="label">总支出</div><div class="value">¥${s.totalExpense.toFixed(2)}</div><div class="sub">含水电 ¥${s.totalUtils.toFixed(2)}</div></div>
-    <div class="card orange"><div class="label">日均支出</div><div class="value">¥${s.dailyAvg.toFixed(2)}</div><div class="sub">含水电</div></div>
-    <div class="card purple"><div class="label">单日最高</div><div class="value">¥${s.maxDaily.toFixed(2)}</div><div class="sub">最高单日消费</div></div>
-    <div class="card blue"><div class="label">初始余额</div><div class="value">¥${initBalance.toFixed(2)}</div><div class="sub">期初预算</div></div>
-    <div class="card green"><div class="label">当前余额</div><div class="value">¥${s.curBalance.toFixed(2)}</div><div class="sub">剩余可支配</div></div>
-    <div class="card teal"><div class="label">使用比率</div><div class="value">${s.usageRatio}%</div><div class="sub">已用 / 总额</div></div>
-  `;
-
-  // Weekly utils
-  const wuTotal = WEEK_KEYS.reduce((s, k) => s + (parseFloat(weeklyUtils[k])||0), 0);
-  document.getElementById('weeklyUtilsContainer').innerHTML =
-    WEEK_KEYS.map((k, i) => `<div class="wu-item"><div class="wu-label">${WEEK_LABELS[i]}</div><input class="wu-input" type="number" step="0.01" value="${weeklyUtils[k]||0}" data-key="${k}" onchange="updateWeeklyUtil('${k}', this.value)"></div>`).join('') +
-    `<div class="wu-item" style="background:#e6fffb;"><div class="wu-label">水电合计</div><div class="wu-total">¥${wuTotal.toFixed(2)}</div></div>`;
-
-  // Daily table
-  document.getElementById('dailyBody').innerHTML = dailyData.map((d, i) => {
-    const h = d.total > 0;
-    return `<tr class="${!h?'empty-row':''}">
-      <td><button class="del-btn" onclick="deleteRow(${i})">×</button></td>
-      <td><input class="editable" type="text" value="${d.d}" onchange="editDate(${i}, this.value)"></td>
-      <td>${d.w?'周'+d.w:''}</td>
-      <td><input class="editable" type="number" step="0.01" value="${d.fw||''}" onchange="editCell(${i},'fw',this.value)"></td>
-      <td><input class="editable" type="number" step="0.01" value="${d.fh||''}" onchange="editCell(${i},'fh',this.value)"></td>
-      <td class="calc">${d.fs?'¥'+d.fs.toFixed(2):'-'}</td>
-      <td><input class="editable" type="number" step="0.01" value="${d.t||''}" onchange="editCell(${i},'t',this.value)"></td>
-      <td><input class="editable" type="number" step="0.01" value="${d.o||''}" onchange="editCell(${i},'o',this.value)"></td>
-      <td class="calc"><strong>${h?'¥'+d.total.toFixed(2):'-'}</strong></td>
-      <td class="calc">¥${d.rem.toFixed(2)}</td>
-      <td><input class="editable editable-note" type="text" value="${d.note||''}" onchange="editCell(${i},'note',this.value)" placeholder="备注"></td>
-    </tr>`;
-  }).join('');
-
-  // Monthly table
-  document.getElementById('monthlyBody').innerHTML = s.months.length
-    ? s.months.map(m => `<tr><td><strong>${m.display}</strong></td><td>${m.days}天</td><td>¥${m.f.toFixed(2)}</td><td>¥${m.t.toFixed(2)}</td><td>${m.u?'¥'+m.u.toFixed(2):'-'}</td><td>¥${m.o.toFixed(2)}</td><td><strong>¥${m.total.toFixed(2)}</strong></td><td>¥${m.dailyAvg.toFixed(2)}</td></tr>`).join('')
-    : '<tr><td colspan="8" style="color:#999;padding:12px;">暂无数据</td></tr>';
-
-  // Weekly table
-  document.getElementById('weeklyBody').innerHTML = s.weeks.length
-    ? s.weeks.map(w => `<tr><td><strong>${w.label}</strong></td><td>¥${w.f.toFixed(2)}</td><td>¥${w.t.toFixed(2)}</td><td>${w.u?'¥'+w.u.toFixed(2):'-'}</td><td>¥${w.o.toFixed(2)}</td><td><strong>¥${w.total.toFixed(2)}</strong></td></tr>`).join('')
+  document.getElementById('weeklyBody').innerHTML = weeks.length
+    ? weeks.map(w => `<tr><td><strong>${w.label}</strong></td><td>¥${w.f.toFixed(2)}</td><td>¥${w.t.toFixed(2)}</td><td>${w.u?'¥'+w.u.toFixed(2):'-'}</td><td>¥${w.o.toFixed(2)}</td><td><strong>¥${w.total.toFixed(2)}</strong></td></tr>`).join('')
     : '<tr><td colspan="6" style="color:#999;padding:12px;">暂无数据</td></tr>';
 
   document.getElementById('daysCount').textContent = s.recordDays + ' 天';
-  if (dailyData.length) document.getElementById('headerDateRange').textContent = dailyData[0].d + ' — ' + dailyData[dailyData.length-1].d;
+  if (monthData.length > 0) {
+    document.getElementById('headerDateRange').textContent = monthData[0].d + ' — ' + monthData[monthData.length-1].d;
+  } else {
+    document.getElementById('headerDateRange').textContent = getMonthDisplay(currentMonth) + ' (暂无数据)';
+  }
 
-  renderCharts(s);
+  renderCharts(s, monthData);
   saveData();
 }
 
 // ========== CHARTS ==========
-function renderCharts(s) {
+function renderCharts(s, monthData) {
   Object.values(chartInstances).forEach(c => c && c.destroy());
   chartInstances = {};
   chartInstances.pie = new Chart(document.getElementById('pieChart'), {
@@ -555,7 +622,7 @@ function renderCharts(s) {
     data: { labels: s.cats.map(c=>c.n), datasets: [{ data: s.cats.map(c=>c.amt), backgroundColor: s.cats.map(c=>c.color), borderWidth: 2 }] },
     options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { padding: 12, usePointStyle: true, font: { size: 10 } } }, tooltip: { callbacks: { label: ctx => ctx.label + ': ¥' + ctx.parsed.toFixed(2) + ' (' + s.cats[ctx.dataIndex].pct + '%)' } } } }
   });
-  const wd = dailyData.filter(d => d.total > 0 || d.fs > 0);
+  const wd = monthData.filter(d => d.total > 0 || d.fs > 0);
   chartInstances.bar = new Chart(document.getElementById('barChart'), {
     type: 'bar',
     data: { labels: wd.map(d=>d.d.slice(5)), datasets: [
@@ -567,7 +634,7 @@ function renderCharts(s) {
   });
   chartInstances.line = new Chart(document.getElementById('lineChart'), {
     type: 'line',
-    data: { labels: dailyData.map(d=>d.d.slice(5)), datasets: [{ label: '余额', data: dailyData.map(d=>d.rem), borderColor: '#1890ff', backgroundColor: 'rgba(24,144,255,0.08)', fill: true, tension: 0.3, pointRadius: 2, pointBackgroundColor: '#1890ff', borderWidth: 2 }] },
+    data: { labels: monthData.map(d=>d.d.slice(5)), datasets: [{ label: '余额', data: monthData.map(d=>d.rem), borderColor: '#1890ff', backgroundColor: 'rgba(24,144,255,0.08)', fill: true, tension: 0.3, pointRadius: 2, pointBackgroundColor: '#1890ff', borderWidth: 2 }] },
     options: { responsive: true, maintainAspectRatio: true, scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 10, font: { size: 9 } } }, y: { beginAtZero: false, grid: { color: '#f0f0f0' }, ticks: { font: { size: 9 } } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => '余额: ¥' + ctx.parsed.y.toFixed(2) } } } }
   });
 }
@@ -592,10 +659,17 @@ function deleteRow(i) {
   render();
 }
 function addRow() {
-  const last = dailyData.length > 0 ? dailyData[dailyData.length-1] : { d: '2026-07-04' };
-  const ld = new Date(last.d); ld.setDate(ld.getDate() + 1);
-  const ds = ld.toISOString().slice(0,10);
-  const w = WEEK_NAMES[ld.getDay() === 0 ? 6 : ld.getDay() - 1];
+  const monthRows = dailyData.filter(d => d.d.startsWith(currentMonth));
+  let refDate;
+  if (monthRows.length > 0) {
+    refDate = new Date(monthRows[monthRows.length - 1].d + 'T00:00:00');
+  } else {
+    refDate = new Date(currentMonth + '-01T00:00:00');
+    refDate.setDate(refDate.getDate() - 1);
+  }
+  refDate.setDate(refDate.getDate() + 1);
+  const ds = refDate.toISOString().slice(0, 10);
+  const w = WEEK_NAMES[refDate.getDay() === 0 ? 6 : refDate.getDay() - 1];
   dailyData.push({ d: ds, w, fw:0, fh:0, fs:0, t:0, o:0, total:0, rem:0, note:'' });
   render();
 }
@@ -606,15 +680,15 @@ function updateWeeklyUtil(key, val) {
 function updateFromBalanceChange() {
   const val = parseFloat(document.getElementById('initBalanceInput').value);
   if (isNaN(val) || val <= 0) { toast('请输入有效金额'); return; }
-  initBalance = val;
+  monthlyBudgets[currentMonth] = val;
   render();
 }
 function resetData() {
   if (!confirm('确定重置为原始数据？此操作会同步到所有设备。')) return;
   dailyData = ORIGINAL_DATA.map(d => ({...d}));
   weeklyUtils = { w1: 21, w2: 45, w3: 0, w4: 0 };
-  initBalance = 2370;
-  document.getElementById('initBalanceInput').value = '2370';
+  monthlyBudgets = { '2026-06': 2370, '2026-07': 2370 };
+  currentMonth = '2026-06';
   render();
 }
 function exportCSV() {
