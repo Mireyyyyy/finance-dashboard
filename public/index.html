@@ -133,6 +133,15 @@ tr:hover .del-btn { opacity: 0.6; }
 </div>
 
 <div class="section">
+  <div class="section-header"><h3>📆 月度汇总 <span class="badge">自动计算</span></h3></div>
+  <div style="overflow-x:auto">
+    <table><thead><tr><th>月份</th><th>天数</th><th>饮食</th><th>交通</th><th>水电</th><th>其他</th><th>月合计</th><th>日均</th></tr></thead>
+      <tbody id="monthlyBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="section">
   <div class="section-header"><h3>周度汇总 <span class="badge">自动计算</span></h3></div>
   <div style="overflow-x:auto">
     <table><thead><tr><th>周次</th><th>饮食</th><th>交通</th><th>水电</th><th>其他</th><th>周合计</th></tr></thead>
@@ -442,13 +451,44 @@ function getSummary() {
   }));
   weeks.sort((a,b) => a.label.localeCompare(b.label));
 
+  // Monthly breakdown
+  const monthMap = {};
+  dailyData.forEach(d => {
+    const m = d.d.slice(0,7);
+    if (!monthMap[m]) monthMap[m] = { label: m, f: 0, t: 0, u: 0, o: 0, days: 0, total: 0 };
+    monthMap[m].f += d.fs;
+    monthMap[m].t += d.t;
+    monthMap[m].o += d.o;
+    monthMap[m].total += d.total;
+    if (d.total > 0) monthMap[m].days++;
+  });
+  // Add weekly utilities to months
+  WEEK_KEYS.forEach((k, i) => {
+    const r = WEEK_RANGES[i];
+    const m = r[0].slice(0,7);
+    if (monthMap[m]) {
+      const uVal = parseFloat(weeklyUtils[k]) || 0;
+      monthMap[m].u += uVal;
+      monthMap[m].total += uVal;
+    }
+  });
+  const monthNames = { '2026-06': '6月', '2026-07': '7月', '2026-08': '8月', '2026-09': '9月', '2026-10': '10月', '2026-11': '11月', '2026-12': '12月' };
+  const months = Object.values(monthMap).map(m => ({
+    ...m, f: Math.round(m.f*100)/100, t: Math.round(m.t*100)/100,
+    u: Math.round(m.u*100)/100, o: Math.round(m.o*100)/100,
+    total: Math.round(m.total*100)/100,
+    display: monthNames[m.label] || m.label,
+    dailyAvg: m.days > 0 ? Math.round(m.total/m.days*100)/100 : 0
+  }));
+  months.sort((a,b) => a.label.localeCompare(b.label));
+
   return {
     totalExpense: Math.round(totalExpense*100)/100,
     dailyAvg: Math.round(dailyAvg*100)/100, recordDays,
     maxDaily: Math.round(maxDaily*100)/100,
     curBalance: Math.round(curBalance*100)/100,
     usageRatio: Math.round(usageRatio*10)/10,
-    cats, weeks, totalUtils: Math.round(totalUtils*100)/100
+    cats, weeks, months, totalUtils: Math.round(totalUtils*100)/100
   };
 }
 
@@ -488,6 +528,11 @@ function render() {
       <td><input class="editable editable-note" type="text" value="${d.note||''}" onchange="editCell(${i},'note',this.value)" placeholder="备注"></td>
     </tr>`;
   }).join('');
+
+  // Monthly table
+  document.getElementById('monthlyBody').innerHTML = s.months.length
+    ? s.months.map(m => `<tr><td><strong>${m.display}</strong></td><td>${m.days}天</td><td>¥${m.f.toFixed(2)}</td><td>¥${m.t.toFixed(2)}</td><td>${m.u?'¥'+m.u.toFixed(2):'-'}</td><td>¥${m.o.toFixed(2)}</td><td><strong>¥${m.total.toFixed(2)}</strong></td><td>¥${m.dailyAvg.toFixed(2)}</td></tr>`).join('')
+    : '<tr><td colspan="8" style="color:#999;padding:12px;">暂无数据</td></tr>';
 
   // Weekly table
   document.getElementById('weeklyBody').innerHTML = s.weeks.length
