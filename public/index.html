@@ -141,7 +141,7 @@ tr:hover .del-btn { opacity: 0.6; }
 <div class="section">
   <div class="section-header"><h3>📆 月度汇总 <span class="badge">自动计算</span></h3></div>
   <div style="overflow-x:auto">
-    <table><thead><tr><th>月份</th><th>天数</th><th>初始余额</th><th>饮食</th><th>交通</th><th>水电</th><th>其他</th><th>月合计</th><th>日均</th></tr></thead>
+    <table><thead><tr><th>月份</th><th>天数</th><th>月初余额</th><th>饮食</th><th>交通</th><th>水电</th><th>其他</th><th>月合计</th><th>日均</th></tr></thead>
       <tbody id="monthlyBody"></tbody>
     </table>
   </div>
@@ -408,13 +408,20 @@ function recalc() {
       }
     }
     const dayExpense = Math.round((d.total + utilsToday) * 100) / 100;
-    const monthKey = d.d.slice(0, 7);
-    if (i === 0 || dailyData[i-1].d.slice(0, 7) !== monthKey) {
-      d.rem = Math.round(((monthlyBudgets[monthKey] || 0) - dayExpense) * 100) / 100;
+    if (i === 0) {
+      d.rem = Math.round(((monthlyBudgets[d.d.slice(0, 7)] || 0) - dayExpense) * 100) / 100;
     } else {
       d.rem = Math.round((dailyData[i-1].rem - dayExpense) * 100) / 100;
     }
   }
+}
+
+function getMonthStartBalance(monthKey) {
+  const firstDay = dailyData.find(d => d.d.startsWith(monthKey));
+  if (!firstDay) return monthlyBudgets[monthKey] || 0;
+  const idx = dailyData.indexOf(firstDay);
+  if (idx <= 0) return monthlyBudgets[monthKey] || 0;
+  return dailyData[idx - 1].rem;
 }
 
 function getMonthSummary(monthKey) {
@@ -428,10 +435,10 @@ function getMonthSummary(monthKey) {
   const recordDays = withData.length;
   const dailyAvg = recordDays > 0 ? totalExpense / recordDays : 0;
   const maxDaily = withData.length > 0 ? Math.max(...withData.map(d => d.total)) : 0;
-  const budget = monthlyBudgets[monthKey] || 0;
+  const startBalance = getMonthStartBalance(monthKey);
   const lastDay = monthData.length > 0 ? monthData[monthData.length-1] : null;
-  const curBalance = lastDay ? lastDay.rem : budget;
-  const usageRatio = budget > 0 ? (totalExpense / budget) * 100 : 0;
+  const curBalance = lastDay ? lastDay.rem : startBalance;
+  const usageRatio = startBalance > 0 ? (totalExpense / startBalance) * 100 : 0;
 
   let food = 0, transport = 0, other = 0;
   monthData.forEach(d => { food += d.fs; transport += d.t; other += d.o; });
@@ -449,7 +456,7 @@ function getMonthSummary(monthKey) {
     maxDaily: Math.round(maxDaily*100)/100,
     curBalance: Math.round(curBalance*100)/100,
     usageRatio: Math.round(usageRatio*10)/10,
-    cats, totalUtils: Math.round(monthUtils*100)/100, budget
+    cats, totalUtils: Math.round(monthUtils*100)/100, budget: startBalance
   };
 }
 
@@ -478,7 +485,7 @@ function getAllMonthsSummary() {
     total: Math.round(m.total*100)/100,
     display: getMonthDisplay(m.label),
     dailyAvg: m.days > 0 ? Math.round(m.total/m.days*100)/100 : 0,
-    budget: monthlyBudgets[m.label] || 0
+    budget: getMonthStartBalance(m.label)
   })).sort((a,b) => a.label.localeCompare(b.label));
 }
 
@@ -520,9 +527,9 @@ function render() {
     <div class="card red"><div class="label">${getMonthDisplay(currentMonth)}总支出</div><div class="value">¥${s.totalExpense.toFixed(2)}</div><div class="sub">含水电 ¥${s.totalUtils.toFixed(2)}</div></div>
     <div class="card orange"><div class="label">日均支出</div><div class="value">¥${s.dailyAvg.toFixed(2)}</div><div class="sub">含水电</div></div>
     <div class="card purple"><div class="label">单日最高</div><div class="value">¥${s.maxDaily.toFixed(2)}</div><div class="sub">最高单日消费</div></div>
-    <div class="card blue"><div class="label">初始余额</div><div class="value">¥${s.budget.toFixed(2)}</div><div class="sub">${getMonthDisplay(currentMonth)}预算</div></div>
+    <div class="card blue"><div class="label">月初余额</div><div class="value">¥${s.budget.toFixed(2)}</div><div class="sub">含上月结余</div></div>
     <div class="card green"><div class="label">当前余额</div><div class="value">¥${s.curBalance.toFixed(2)}</div><div class="sub">剩余可支配</div></div>
-    <div class="card teal"><div class="label">使用比率</div><div class="value">${s.usageRatio}%</div><div class="sub">已用 / 预算</div></div>
+    <div class="card teal"><div class="label">使用比率</div><div class="value">${s.usageRatio}%</div><div class="sub">已用 / 月初</div></div>
   `;
 
   // Chart month labels
