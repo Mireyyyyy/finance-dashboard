@@ -296,13 +296,13 @@ async function syncFromServer() {
         return false;
       }
       const serverData = json.data.data;
-      const serverStr = JSON.stringify({ d: serverData.dailyData, w: serverData.weeklyUtils, b: serverData.monthlyBudgets });
-      const currentStr = JSON.stringify({ d: dailyData, w: weeklyUtils, b: monthlyBudgets });
+      const serverStr = JSON.stringify({ d: serverData.dailyData, w: serverData.weeklyUtils });
+      const currentStr = JSON.stringify({ d: dailyData, w: weeklyUtils });
       if (serverStr !== currentStr && !isLocalChange) {
         dailyData = serverData.dailyData;
         weeklyUtils = serverData.weeklyUtils;
-        monthlyBudgets = serverData.monthlyBudgets || { '2026-06': 2370, '2026-07': 2370 };
-        currentMonth = serverData.currentMonth || getAvailableMonths()[0] || '2026-06';
+        if (serverData.monthlyBudgets) monthlyBudgets = serverData.monthlyBudgets;
+        if (serverData.currentMonth) currentMonth = serverData.currentMonth;
         render();
         setSyncStatus('green', '已同步');
         toast('检测到其他设备的更改，已自动更新');
