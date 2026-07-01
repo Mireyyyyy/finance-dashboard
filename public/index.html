@@ -659,18 +659,25 @@ function deleteRow(i) {
   dailyData.splice(i, 1);
   render();
 }
+function toLocalDate(year, month, day) {
+  return year + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+}
+
 function addRow() {
   const monthRows = dailyData.filter(d => d.d.startsWith(currentMonth));
-  let refDate;
+  let ds;
   if (monthRows.length > 0) {
-    refDate = new Date(monthRows[monthRows.length - 1].d + 'T00:00:00');
+    const last = monthRows[monthRows.length - 1].d;
+    const p = last.split('-').map(Number);
+    const d = new Date(p[0], p[1] - 1, p[2]);
+    d.setDate(d.getDate() + 1);
+    ds = toLocalDate(d.getFullYear(), d.getMonth() + 1, d.getDate());
   } else {
-    refDate = new Date(currentMonth + '-01T00:00:00');
-    refDate.setDate(refDate.getDate() - 1);
+    ds = currentMonth + '-01';
   }
-  refDate.setDate(refDate.getDate() + 1);
-  const ds = refDate.toISOString().slice(0, 10);
-  const w = WEEK_NAMES[refDate.getDay() === 0 ? 6 : refDate.getDay() - 1];
+  const p = ds.split('-').map(Number);
+  const dt = new Date(p[0], p[1] - 1, p[2]);
+  const w = WEEK_NAMES[dt.getDay() === 0 ? 6 : dt.getDay() - 1];
   dailyData.push({ d: ds, w, fw:0, fh:0, fs:0, t:0, o:0, total:0, rem:0, note:'' });
   render();
 }
