@@ -302,7 +302,6 @@ async function syncFromServer() {
         dailyData = serverData.dailyData;
         weeklyUtils = serverData.weeklyUtils;
         if (serverData.monthlyBudgets) monthlyBudgets = serverData.monthlyBudgets;
-        if (serverData.currentMonth) currentMonth = serverData.currentMonth;
         render();
         setSyncStatus('green', '已同步');
         toast('检测到其他设备的更改，已自动更新');
@@ -344,7 +343,8 @@ async function loadFromServer() {
         dailyData = sd.dailyData;
         weeklyUtils = sd.weeklyUtils || { w1:21, w2:45, w3:0, w4:0 };
         monthlyBudgets = sd.monthlyBudgets || { '2026-06': 2370, '2026-07': 2370 };
-        currentMonth = sd.currentMonth || '2026-06';
+        const savedMonth = localStorage.getItem(STORAGE_KEY + '_month');
+					currentMonth = savedMonth || sd.currentMonth || getAvailableMonths()[0] || "2026-06";
         lastSavedHash = computeHash();
         setSyncStatus('green', '已同步');
         return true;
@@ -365,7 +365,7 @@ function loadLocalFallback() {
       dailyData = p.data || [];
       weeklyUtils = p.weeklyUtils || { w1:21, w2:45, w3:0, w4:0 };
       monthlyBudgets = p.monthlyBudgets || { '2026-06': 2370, '2026-07': 2370 };
-      currentMonth = p.currentMonth || '2026-06';
+      currentMonth = localStorage.getItem(STORAGE_KEY + '_month') || p.currentMonth || '2026-06';
       if (dailyData.length > 0) return;
     }
   } catch(e) {}
@@ -377,7 +377,8 @@ function loadLocalFallback() {
 
 // ========== SAVE ==========
 function saveData() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+  localStorage.setItem(STORAGE_KEY + '_month', currentMonth);
+		localStorage.setItem(STORAGE_KEY, JSON.stringify({
     data: dailyData, weeklyUtils, monthlyBudgets, currentMonth
   }));
   isLocalChange = true;
