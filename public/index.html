@@ -192,6 +192,7 @@ let currentMonth = '2026-06';
 let chartInstances = {};
 let lastSavedHash = '';
 let isSyncing = false;
+let pendingSync = false;
 let isLocalChange = false;
 
 const STORAGE_KEY = 'finance_dashboard_local';
@@ -266,7 +267,10 @@ function setSyncStatus(state, text) {
 }
 
 async function syncToServer() {
-  if (isSyncing) return;
+  if (isSyncing) {
+    pendingSync = true;
+    return;
+  }
   isSyncing = true;
   try {
     const payload = { data: { dailyData, weeklyUtils, monthlyBudgets, currentMonth } };
@@ -284,6 +288,10 @@ async function syncToServer() {
     setSyncStatus('red', '未连接');
   }
   isSyncing = false;
+  if (pendingSync) {
+    pendingSync = false;
+    syncToServer();
+  }
 }
 
 async function syncFromServer() {
