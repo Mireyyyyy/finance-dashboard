@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>财务支出明细看板</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f0f2f5; color: #333; }
@@ -72,6 +73,8 @@ td.calc { color: #666; font-weight: 500; background: #fafafa; }
 .btn-outline { background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); }
 .btn-outline:hover { border-color: rgba(255,255,255,0.6); }
 .btn-sm { padding: 3px 8px; font-size: 10px; }
+.backup-toggle { display: flex; align-items: center; gap: 3px; font-size: 10px; color: rgba(255,255,255,0.7); cursor: pointer; padding: 3px 8px; border-radius: 12px; background: rgba(255,255,255,0.08); }
+.backup-toggle input { accent-color: #52c41a; }
 .balance-row { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
 .balance-edit { display: flex; align-items: center; gap: 5px; background: white; padding: 4px 10px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
 .balance-edit label { font-size: 11px; color: #666; white-space: nowrap; }
@@ -105,7 +108,12 @@ tr:hover .del-btn { opacity: 0.6; }
       <span id="syncText">连接中...</span>
     </span>
     <button class="btn btn-outline btn-sm" onclick="resetData()">重置</button>
-    <button class="btn btn-outline btn-sm" onclick="exportCSV()">导出</button>
+    <button class="btn btn-outline btn-sm" onclick="exportCSV()">CSV</button>
+    <button class="btn btn-outline btn-sm" onclick="exportExcel()">Excel</button>
+    <label class="backup-toggle" title="每次修改后自动下载 Excel 备份">
+      <input type="checkbox" id="autoBackupCheck" onchange="toggleAutoBackup(this.checked)">
+      <span>备份</span>
+    </label>
   </div>
 </div>
 
@@ -523,6 +531,8 @@ function renderMonthSelector() {
 function render() {
   recalc();
   renderMonthSelector();
+  const autoBk = localStorage.getItem('finance_dashboard_autobackup');
+  document.getElementById('autoBackupCheck').checked = autoBk === '1';
 
   // Update balance input for current month
   document.getElementById('initBalanceInput').value = (monthlyBudgets[currentMonth] || 0).toFixed(2);
@@ -715,6 +725,7 @@ function resetData() {
   render();
 }
 function exportCSV() {
+  
   const BOM = '\uFEFF';
   let csv = BOM + '日期,星期,饮食-W,饮食-H,饮食小计,交通,其他,日合计,余额,备注\n';
   dailyData.forEach(d => { csv += `${d.d},周${d.w},${d.fw},${d.fh},${d.fs},${d.t},${d.o},${d.total},${d.rem},"${d.note}"\n`; });
@@ -724,6 +735,36 @@ function exportCSV() {
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = '财务支出明细.csv'; a.click();
   URL.revokeObjectURL(a.href);
 }
+
+function exportExcel() {
+  if (typeof XLSX === 'undefined') { toast('Excel 库加载中，请稍后'); return; }
+  const wb = XLSX.utils.book_new();
+  const detailRows = [['日期','星期','饮食-W','饮食-H','饮食小计','交通','其他','日合计','余额','备注']];
+  dailyData.forEach(d => detailRows.push([d.d,'周'+d.w,d.fw||0,d.fh||0,d.fs||0,d.t||0,d.o||0,d.total||0,d.rem||0,d.note||'']));
+  const ws1 = XLSX.utils.aoa_to_sheet(detailRows);
+  ws1['!cols'] = [{wch:12},{wch:5},{wch:8},{wch:8},{wch:8},{wch:8},{wch:8},{wch:8},{wch:8},{wch:16}];
+  XLSX.utils.book_append_sheet(wb, ws1, '明细');
+  const summaryRows = [['周次','日期范围','金额']];
+  WEEK_KEYS.forEach((k, i) => summaryRows.push([k, WEEK_LABELS[i], weeklyUtils[k]||0]));
+  const ws2 = XLSX.utils.aoa_to_sheet(summaryRows);
+  ws2['!cols'] = [{wch:6},{wch:22},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, ws2, '汇总');
+  const ts = new Date();
+  const fn = '财务支出明细_' + ts.getFullYear() + String(ts.getMonth()+1).padStart(2,'0') + String(ts.getDate()).padStart(2,'0') + '.xlsx';
+  XLSX.writeFile(wb, fn);
+  toast('Excel 已导出');
+}
+let backupTimer = null;
+function toggleAutoBackup(enabled) {
+  localStorage.setItem('finance_dashboard_autobackup', enabled ? '1' : '');
+  toast(enabled ? '自动备份已开启' : '自动备份已关闭');
+}
+function maybeAutoBackup() {
+  if (localStorage.getItem('finance_dashboard_autobackup') !== '1') return;
+  clearTimeout(backupTimer);
+  backupTimer = setTimeout(function() { exportExcel(); }, 3000);
+}
+
 let toastTimer;
 function toast(msg) {
   const el = document.getElementById('toast');
