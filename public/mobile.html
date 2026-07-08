@@ -426,7 +426,7 @@ function saveData() {
   localStorage.setItem(STORAGE_KEY + '_month', currentMonth);
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ data: dailyData, monthlyWater, monthlyBudgets, currentMonth }));
   isLocalChange = true;
-  syncToServer().then(() => triggerExcelAutoSync());
+  syncToServer();
 }
 
 // Excel 自动同步（保存在本地电脑）

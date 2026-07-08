@@ -452,46 +452,11 @@ function loadLocalFallback() {
 // ========== SAVE ==========
 function saveData() {
   localStorage.setItem(STORAGE_KEY + '_month', currentMonth);
-		localStorage.setItem(STORAGE_KEY, JSON.stringify({
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
     data: dailyData, monthlyWater, monthlyBudgets, currentMonth
   }));
   isLocalChange = true;
-  syncToServer().then(() => triggerExcelAutoSync());
-}
-
-// Excel 自动同步（保存在本地电脑）
-let _excelSyncTimer = null;
-function triggerExcelAutoSync() {
-  clearTimeout(_excelSyncTimer);
-  _excelSyncTimer = setTimeout(() => {
-    toast('正在同步到 Excel ...');
-    // 用服务器端生成的 Excel（更可靠的格式）
-    fetchExcelFromServer().then(ok => {
-      if (!ok) {
-        toast('正在本地生成 Excel ...');
-        exportExcel(); // 服务端不行则用客户端生成
-      } else {
-        toast('Excel 已同步到本地');
-      }
-    });
-  }, 1500);
-}
-
-// 从服务器下载 Excel 文件（云端生成 → 本地保存）
-async function fetchExcelFromServer() {
-  try {
-    const res = await fetch('/api/export-excel');
-    if (!res.ok) return false;
-    const blob = await res.blob();
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = '财务部门_月结算.xlsx';
-    a.click();
-    URL.revokeObjectURL(a.href);
-    return true;
-  } catch(e) {
-    return false;
-  }
+  syncToServer();
 }
 
 // ========== CALCULATIONS ==========
