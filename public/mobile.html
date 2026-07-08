@@ -2,120 +2,122 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>财务支出明细看板</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>财务支出看板</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f0f2f5; color: #333; }
-.header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); color: white; padding: 24px 24px; text-align: center; position: relative; }
-.header h1 { font-size: 26px; margin-bottom: 4px; }
-.header p { font-size: 13px; opacity: 0.8; }
-.header-actions { position: absolute; top: 14px; right: 20px; display: flex; gap: 6px; align-items: center; }
-.sync-status { display: flex; align-items: center; gap: 5px; font-size: 11px; padding: 4px 10px; border-radius: 12px; background: rgba(255,255,255,0.12); cursor: pointer; }
-.sync-status .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f0f2f5; color: #333; font-size: 14px; padding-bottom: env(safe-area-inset-bottom); }
+/* Header */
+.header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); color: #fff; padding: 14px 14px 10px; position: sticky; top: 0; z-index: 100; }
+.header-top { display: flex; justify-content: space-between; align-items: center; }
+.header h1 { font-size: 17px; font-weight: 600; }
+.header .sub { font-size: 11px; opacity: .7; margin-top: 2px; }
+.header-actions { display: flex; gap: 4px; align-items: center; }
+.sync-status { display: flex; align-items: center; gap: 3px; font-size: 10px; padding: 3px 8px; border-radius: 10px; background: rgba(255,255,255,0.12); cursor: pointer; }
+.sync-status .dot { width: 6px; height: 6px; border-radius: 50%; }
 .sync-status .dot.green { background: #52c41a; }
-.sync-status .dot.yellow { background: #faad14; animation: pulse 1.2s infinite; }
+.sync-status .dot.yellow { background: #faad14; }
 .sync-status .dot.red { background: #ff4d4f; }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-.month-selector { display: flex; gap: 8px; justify-content: center; padding: 14px 20px 8px; flex-wrap: wrap; }
-.month-btn { padding: 7px 22px; border: 1px solid #d9d9d9; border-radius: 20px; background: white; cursor: pointer; font-size: 13px; font-family: inherit; transition: 0.15s; font-weight: 500; }
-.month-btn:hover { border-color: #1890ff; color: #1890ff; }
-.month-btn.active { background: #1890ff; color: white; border-color: #1890ff; }
-.container { max-width: 1200px; margin: 0 auto; padding: 16px 20px; }
-.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 16px; }
-.card { background: white; border-radius: 10px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: center; }
-.card .label { font-size: 11px; color: #888; margin-bottom: 3px; }
-.card .value { font-size: 20px; font-weight: 700; }
-.card .sub { font-size: 10px; color: #999; margin-top: 3px; }
+/* Month Selector */
+.month-selector { display: flex; gap: 6px; padding: 8px 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.month-selector::-webkit-scrollbar { display: none; }
+.month-btn { flex-shrink: 0; padding: 6px 18px; border: 1px solid #d9d9d9; border-radius: 16px; background: #fff; font-size: 13px; font-family: inherit; font-weight: 500; }
+.month-btn.active { background: #1890ff; color: #fff; border-color: #1890ff; }
+/* Container */
+.container { padding: 10px 12px; }
+/* Cards */
+.cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.card { background: #fff; border-radius: 8px; padding: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); text-align: center; }
+.card .label { font-size: 10px; color: #888; margin-bottom: 2px; }
+.card .value { font-size: 17px; font-weight: 700; line-height: 1.3; }
+.card .sub { font-size: 9px; color: #999; margin-top: 1px; }
 .card.blue .value { color: #1890ff; }
 .card.red .value { color: #f5222d; }
 .card.green .value { color: #52c41a; }
 .card.orange .value { color: #fa8c16; }
 .card.purple .value { color: #722ed1; }
 .card.teal .value { color: #13c2c2; }
-.charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
-.chart-box { background: white; border-radius: 10px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-.chart-box h3 { font-size: 13px; margin-bottom: 8px; color: #444; }
-.chart-box canvas { max-height: 240px; max-width: 100%; }
-.chart-full { background: white; border-radius: 10px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 16px; }
-.chart-full h3 { font-size: 13px; margin-bottom: 8px; color: #444; }
-.chart-full canvas { max-height: 200px; max-width: 100%; }
-.section { background: white; border-radius: 10px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 14px; }
-.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 6px; }
-.section-header h3 { font-size: 14px; color: #444; display: flex; align-items: center; gap: 6px; }
-.section-header .badge { font-size: 10px; background: #1890ff; color: white; padding: 2px 7px; border-radius: 10px; font-weight: 400; }
-.section-header .actions { display: flex; gap: 6px; align-items: center; }
-.section-note { font-size: 11px; color: #999; margin-top: 6px; }
-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-thead th { background: #fafafa; padding: 7px 5px; text-align: center; font-weight: 600; color: #555; border-bottom: 2px solid #e8e8e8; white-space: nowrap; }
-tbody td { padding: 3px; text-align: center; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+/* Sections */
+.section { background: #fff; border-radius: 8px; padding: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 10px; }
+.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 4px; }
+.section-header h3 { font-size: 13px; color: #444; display: flex; align-items: center; gap: 4px; }
+.section-header .badge { font-size: 9px; background: #1890ff; color: #fff; padding: 1px 6px; border-radius: 8px; font-weight: 400; }
+.section-header .actions { display: flex; gap: 4px; }
+/* Balance */
+.balance-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.balance-edit { display: flex; align-items: center; gap: 5px; background: #fff; padding: 6px 10px; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); flex: 1; }
+.balance-edit label { font-size: 11px; color: #666; white-space: nowrap; }
+.balance-edit input { flex: 1; min-width: 0; padding: 5px 6px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 13px; text-align: center; outline: none; }
+.balance-edit input:focus { border-color: #1890ff; }
+/* Charts */
+.charts-row { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+.chart-box { background: #fff; border-radius: 8px; padding: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+.chart-box h3 { font-size: 12px; margin-bottom: 6px; color: #444; }
+.chart-box canvas { max-height: 200px; max-width: 100%; }
+.chart-full { background: #fff; border-radius: 8px; padding: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 10px; }
+.chart-full h3 { font-size: 12px; margin-bottom: 6px; color: #444; }
+.chart-full canvas { max-height: 170px; max-width: 100%; }
+/* Tables */
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -4px; }
+table { width: 100%; border-collapse: collapse; font-size: 11px; min-width: 600px; }
+thead th { background: #fafafa; padding: 6px 4px; text-align: center; font-weight: 600; color: #555; border-bottom: 2px solid #e8e8e8; white-space: nowrap; font-size: 10px; }
+tbody td { padding: 3px 2px; text-align: center; border-bottom: 1px solid #f0f0f0; }
 tbody tr:hover { background: #f5f8ff; }
-.text-left { text-align: left; }
-.editable { width: 100%; border: none; background: transparent; text-align: center; font-size: 11px; font-family: inherit; padding: 3px 2px; border-radius: 3px; outline: none; transition: 0.15s; }
-.editable:hover { background: #f0f4ff; }
+.editable { width: 100%; border: none; background: transparent; text-align: center; font-size: 11px; font-family: inherit; padding: 4px 2px; border-radius: 3px; outline: none; }
 .editable:focus { background: #e6f0ff; box-shadow: 0 0 0 2px rgba(24,144,255,0.3); }
 .editable-note { text-align: left; }
-.editable.calc { color: #666; font-weight: 500; background: #fafafa; cursor: default; }
+.editable.calc { color: #666; font-weight: 500; background: #fafafa; pointer-events: none; }
 td.calc { color: #666; font-weight: 500; background: #fafafa; }
-.weekly-utils { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 6px; }
-.weekly-utils .wu-item { background: #fafafa; border-radius: 8px; padding: 10px 14px; text-align: center; min-width: 110px; flex: 1; }
-.weekly-utils .wu-item .wu-label { font-size: 11px; color: #888; margin-bottom: 3px; }
-.weekly-utils .wu-item .wu-input { width: 90px; padding: 5px 8px; border: 1px solid #d9d9d9; border-radius: 5px; font-size: 13px; text-align: center; outline: none; transition: 0.15s; }
-.weekly-utils .wu-item .wu-input:focus { border-color: #1890ff; box-shadow: 0 0 0 2px rgba(24,144,255,0.2); }
-.weekly-utils .wu-item .wu-total { font-size: 15px; font-weight: 700; color: #13c2c2; padding: 5px 0; }
-.btn { padding: 5px 12px; border: none; border-radius: 5px; font-size: 11px; cursor: pointer; transition: 0.15s; font-family: inherit; display: inline-flex; align-items: center; gap: 3px; }
-.btn-primary { background: #1890ff; color: white; }
-.btn-primary:hover { background: #40a9ff; }
-.btn-success { background: #52c41a; color: white; }
-.btn-success:hover { background: #73d13d; }
-.btn-outline { background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); }
-.btn-outline:hover { border-color: rgba(255,255,255,0.6); }
-.btn-sm { padding: 3px 8px; font-size: 10px; }
-.backup-toggle { display: flex; align-items: center; gap: 3px; font-size: 10px; color: rgba(255,255,255,0.7); cursor: pointer; padding: 3px 8px; border-radius: 12px; background: rgba(255,255,255,0.08); }
+/* Weekly Utils */
+.weekly-utils { display: flex; gap: 8px; flex-wrap: wrap; }
+.weekly-utils .wu-item { background: #fafafa; border-radius: 6px; padding: 8px 10px; text-align: center; flex: 1; min-width: calc(50% - 8px); }
+.weekly-utils .wu-item .wu-label { font-size: 10px; color: #888; margin-bottom: 2px; }
+.weekly-utils .wu-item .wu-input { width: 80px; padding: 6px 8px; border: 1px solid #d9d9d9; border-radius: 5px; font-size: 14px; text-align: center; outline: none; }
+.weekly-utils .wu-item .wu-input:focus { border-color: #1890ff; }
+.weekly-utils .wu-item .wu-total { font-size: 14px; font-weight: 700; color: #13c2c2; padding: 4px 0; }
+/* Buttons */
+.btn { padding: 6px 12px; border: none; border-radius: 5px; font-size: 12px; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 3px; min-height: 32px; }
+.btn-primary { background: #1890ff; color: #fff; }
+.btn-primary:active { background: #40a9ff; }
+.btn-success { background: #52c41a; color: #fff; }
+.btn-success:active { background: #73d13d; }
+.btn-outline { background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
+.btn-outline:active { border-color: rgba(255,255,255,0.6); }
+.btn-sm { padding: 3px 8px; font-size: 10px; min-height: 26px; }
+.btn-block { width: 100%; justify-content: center; padding: 10px; font-size: 14px; }
+.del-btn { opacity: 0.3; cursor: pointer; font-size: 15px; background: none; border: none; padding: 2px 6px; }
+.del-btn:active { opacity: 1; color: #ff4d4f; }
+.backup-toggle { display: flex; align-items: center; gap: 2px; font-size: 10px; color: rgba(255,255,255,0.7); padding: 2px 6px; border-radius: 10px; background: rgba(255,255,255,0.08); }
 .backup-toggle input { accent-color: #52c41a; }
-.balance-row { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
-.balance-edit { display: flex; align-items: center; gap: 5px; background: white; padding: 4px 10px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-.balance-edit label { font-size: 11px; color: #666; white-space: nowrap; }
-.balance-edit input { width: 72px; padding: 3px 6px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 12px; text-align: center; outline: none; }
-.balance-edit input:focus { border-color: #1890ff; box-shadow: 0 0 0 2px rgba(24,144,255,0.2); }
-.del-btn { opacity: 0.3; cursor: pointer; font-size: 13px; transition: 0.15s; background: none; border: none; padding: 2px 5px; }
-.del-btn:hover { opacity: 1; color: #ff4d4f; }
-tr:hover .del-btn { opacity: 0.6; }
-.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 8px 20px; border-radius: 6px; font-size: 12px; opacity: 0; transition: 0.3s; pointer-events: none; z-index: 999; }
+/* Fixed bottom bar */
+.bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid #e8e8e8; padding: 6px 12px calc(6px + env(safe-area-inset-bottom)); display: flex; gap: 6px; justify-content: center; z-index: 100; box-shadow: 0 -2px 8px rgba(0,0,0,0.06); }
+.bottom-bar .btn { flex: 1; justify-content: center; font-size: 12px; }
+.container { padding-bottom: 60px; }
+/* Toast */
+.toast { position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: #fff; padding: 8px 18px; border-radius: 6px; font-size: 12px; opacity: 0; transition: .3s; pointer-events: none; z-index: 999; white-space: nowrap; }
 .toast.show { opacity: 1; }
-@media (max-width: 768px) {
-  .charts-row { grid-template-columns: 1fr; }
-  .cards { grid-template-columns: repeat(3, 1fr); }
-  .header-actions { position: static; margin-top: 10px; justify-content: center; flex-wrap: wrap; }
-  .section-header { flex-direction: column; align-items: flex-start; }
-  .weekly-utils { flex-direction: column; }
-}
-@media (max-width: 480px) {
-  .cards { grid-template-columns: repeat(2, 1fr); }
-}
 </style>
 </head>
 <body>
 
 <div class="header">
-  <h1>财务支出明细看板</h1>
-  <p id="headerDateRange">2026年6月15日 — 2026年7月4日</p>
-  <div class="header-actions">
-    <span class="sync-status" id="syncStatus" onclick="manualSync()" title="点击手动同步">
-      <span class="dot yellow" id="syncDot"></span>
-      <span id="syncText">连接中...</span>
-    </span>
-    <button class="btn btn-outline btn-sm" onclick="resetData()">重置</button>
-    <button class="btn btn-outline btn-sm" onclick="exportCSV()">CSV</button>
-    <button class="btn btn-outline btn-sm" onclick="exportExcel()">Excel</button>
-    <button class="btn btn-outline btn-sm" onclick="document.getElementById('importFile').click()">导入</button>
-    <input type="file" id="importFile" accept=".xlsx,.xls" style="display:none" onchange="importExcel(event)">
-    <label class="backup-toggle" title="每次修改后自动下载 Excel 备份">
-      <input type="checkbox" id="autoBackupCheck" onchange="toggleAutoBackup(this.checked)">
-      <span>备份</span>
-    </label>
+  <div class="header-top">
+    <div>
+      <h1>财务支出看板</h1>
+      <div class="sub" id="headerDateRange">加载中...</div>
+    </div>
+    <div class="header-actions">
+      <span class="sync-status" id="syncStatus" onclick="manualSync()">
+        <span class="dot yellow" id="syncDot"></span>
+        <span id="syncText">连接中...</span>
+      </span>
+      <label class="backup-toggle" title="自动备份">
+        <input type="checkbox" id="autoBackupCheck" onchange="toggleAutoBackup(this.checked)">
+        <span>备份</span>
+      </label>
+    </div>
   </div>
 </div>
 
@@ -127,40 +129,39 @@ tr:hover .del-btn { opacity: 0.6; }
 
 <div class="balance-row">
   <div class="balance-edit">
-    <label id="balanceLabel">6月初始余额</label>
+    <label id="balanceLabel">初始余额</label>
     <input type="number" id="initBalanceInput" step="0.01">
     <button class="btn btn-primary btn-sm" onclick="updateFromBalanceChange()">更新</button>
   </div>
 </div>
 
 <div class="charts-row">
-  <div class="chart-box"><h3>分类支出占比（<span id="pieChartMonth">6月</span>）</h3><canvas id="pieChart"></canvas></div>
-  <div class="chart-box"><h3>每日支出趋势（<span id="barChartMonth">6月</span>）</h3><canvas id="barChart"></canvas></div>
+  <div class="chart-box"><h3>分类占比（<span id="pieChartMonth">6月</span>）</h3><canvas id="pieChart"></canvas></div>
+  <div class="chart-box"><h3>每日趋势（<span id="barChartMonth">6月</span>）</h3><canvas id="barChart"></canvas></div>
 </div>
 
-<div class="chart-full"><h3>余额变化趋势（<span id="lineChartMonth">6月</span>）</h3><canvas id="lineChart"></canvas></div>
+<div class="chart-full"><h3>余额趋势（<span id="lineChartMonth">6月</span>）</h3><canvas id="lineChart"></canvas></div>
 
 <div class="section">
   <div class="section-header">
-    <h3>💧 水电支出（月度结算）<span class="badge">按月填写</span></h3>
+    <h3>水电月结算 <span class="badge">按月填写</span></h3>
   </div>
-  <p style="font-size:11px;color:#999;margin-bottom:8px;">水电费按月结算，在输入框中填写当月总金额</p>
   <div class="weekly-utils" id="monthlyWaterContainer"></div>
 </div>
 
 <div class="section">
-  <div class="section-header"><h3>📆 月度汇总 <span class="badge">自动计算</span></h3></div>
-  <div style="overflow-x:auto">
-    <table><thead><tr><th>月份</th><th>天数</th><th>月初余额</th><th>饮食</th><th>交通</th><th>水电</th><th>其他</th><th>月合计</th><th>日均</th></tr></thead>
+  <div class="section-header"><h3>月度汇总 <span class="badge">自动</span></h3></div>
+  <div class="table-wrap">
+    <table><thead><tr><th>月</th><th>天</th><th>饮食</th><th>交通</th><th>水电</th><th>其他</th><th>合计</th><th>日均</th></tr></thead>
       <tbody id="monthlyBody"></tbody>
     </table>
   </div>
 </div>
 
 <div class="section">
-  <div class="section-header"><h3>周度汇总 <span class="badge">自动计算</span></h3></div>
-  <div style="overflow-x:auto">
-    <table><thead><tr><th>周次</th><th>饮食</th><th>交通</th><th>水电</th><th>其他</th><th>周合计</th></tr></thead>
+  <div class="section-header"><h3>周度汇总 <span class="badge">自动</span></h3></div>
+  <div class="table-wrap">
+    <table><thead><tr><th>周</th><th>饮食</th><th>交通</th><th>水电</th><th>其他</th><th>合计</th></tr></thead>
       <tbody id="weeklyBody"></tbody>
     </table>
   </div>
@@ -170,22 +171,28 @@ tr:hover .del-btn { opacity: 0.6; }
   <div class="section-header">
     <h3>每日明细 <span class="badge" id="daysCount">0 天</span></h3>
     <div class="actions">
-      <button class="btn btn-primary btn-sm" onclick="addRow()">+ 新增行</button>
+      <button class="btn btn-primary btn-sm" onclick="addRow()">+ 新增</button>
     </div>
   </div>
-  <div style="overflow-x:auto">
+  <div class="table-wrap">
     <table>
       <thead><tr>
-        <th style="width:24px"></th><th>日期</th><th>周</th>
-        <th>饮食-W</th><th>饮食-H</th><th>饮食小计</th>
-        <th>交通</th><th>其他</th><th>日合计</th><th>余额</th><th>备注</th>
+        <th style="width:22px"></th><th>日期</th><th>饮食</th><th>交通</th><th>其他</th><th>日合计</th><th>余额</th><th>备注</th>
       </tr></thead>
       <tbody id="dailyBody"></tbody>
     </table>
   </div>
-  <div class="section-note">水电已改为月度结算，请在"水电支出（月度结算）"区域填写当月总金额</div>
+  <div style="font-size:10px;color:#999;margin-top:6px;">水电在"水电月结算"填写，月末自动扣除</div>
 </div>
 
+</div>
+
+<div class="bottom-bar">
+  <button class="btn btn-primary btn-sm" onclick="resetData()">重置</button>
+  <button class="btn btn-primary btn-sm" onclick="exportCSV()">CSV</button>
+  <button class="btn btn-primary btn-sm" onclick="exportExcel()">Excel</button>
+  <button class="btn btn-primary btn-sm" onclick="document.getElementById('importFile').click()">导入</button>
+  <input type="file" id="importFile" accept=".xlsx,.xls" style="display:none" onchange="importExcel(event)">
 </div>
 
 <div id="toast" class="toast"></div>
@@ -244,71 +251,53 @@ const ORIGINAL_DATA = [
 function getMonthDisplay(monthKey) {
   return parseInt(monthKey.split('-')[1]) + '月';
 }
-
 function getWeekMonth(wi) {
   return WEEK_RANGES[wi][1].slice(0, 7);
 }
-
 function getAvailableMonths() {
-  const months = new Set();
-  dailyData.forEach(d => months.add(d.d.slice(0, 7)));
-  Object.keys(monthlyWater).forEach(m => months.add(m));
-  return Array.from(months).sort();
+  const s = new Set();
+  dailyData.forEach(d => s.add(d.d.slice(0, 7)));
+  Object.keys(monthlyWater).forEach(m => s.add(m));
+  return Array.from(s).sort();
 }
 
 // ========== DATA HASH ==========
 function computeHash() {
   const str = JSON.stringify({ d: dailyData, w: monthlyWater, b: monthlyBudgets });
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const c = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + c;
-    hash = hash & hash;
-  }
-  return hash.toString(36);
+  let h = 0;
+  for (let i = 0; i < str.length; i++) { h = ((h << 5) - h) + str.charCodeAt(i); h = h & h; }
+  return h.toString(36);
 }
 
 // ========== SYNC ==========
 function setSyncStatus(state, text) {
-  const dot = document.getElementById('syncDot');
-  const txt = document.getElementById('syncText');
-  dot.className = 'dot ' + state;
-  txt.textContent = text;
+  document.getElementById('syncDot').className = 'dot ' + state;
+  document.getElementById('syncText').textContent = text;
 }
 
 async function syncToServer() {
-  if (isSyncing) {
-    pendingSync = true;
-    return;
-  }
+  if (isSyncing) { pendingSync = true; return; }
   isSyncing = true;
   try {
-    const payload = { data: { dailyData, monthlyWater, monthlyBudgets, currentMonth } };
     const res = await fetch('/api/data', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({ data: { dailyData, monthlyWater, monthlyBudgets, currentMonth } })
     });
     const json = await res.json();
     if (json.success) {
       lastSavedHash = computeHash();
-      isLocalChange = false; // 同步成功后清除本地更改标记
+      isLocalChange = false;
       setSyncStatus('green', '已同步');
-      // 显示 Excel 同步状态
       if (json.excelSync) {
         const results = Object.entries(json.excelSync);
         const ok = results.filter(([,v]) => v).length;
         if (ok > 0) toast('Excel 同步完成 (' + ok + '/' + results.length + ')');
       }
     }
-  } catch (e) {
-    setSyncStatus('red', '未连接');
-  }
+  } catch (e) { setSyncStatus('red', '未连接'); }
   isSyncing = false;
-  if (pendingSync) {
-    pendingSync = false;
-    syncToServer();
-  }
+  if (pendingSync) { pendingSync = false; syncToServer(); }
 }
 
 async function syncFromServer() {
@@ -317,16 +306,14 @@ async function syncFromServer() {
     const json = await res.json();
     if (json.success && json.data && json.data.data) {
       const localHash = computeHash();
-      if (localHash !== lastSavedHash) {
-        return false;
-      }
-      const serverData = json.data.data;
-      const serverStr = JSON.stringify({ d: serverData.dailyData, w: serverData.monthlyWater });
+      if (localHash !== lastSavedHash) return false;
+      const sd = json.data.data;
+      const serverStr = JSON.stringify({ d: sd.dailyData, w: sd.monthlyWater });
       const currentStr = JSON.stringify({ d: dailyData, w: monthlyWater });
       if (serverStr !== currentStr && !isLocalChange) {
-        dailyData = serverData.dailyData;
-        monthlyWater = serverData.monthlyWater;
-        if (serverData.monthlyBudgets) monthlyBudgets = serverData.monthlyBudgets;
+        dailyData = sd.dailyData;
+        monthlyWater = sd.monthlyWater;
+        if (sd.monthlyBudgets) monthlyBudgets = sd.monthlyBudgets;
         render();
         setSyncStatus('green', '已同步');
         toast('检测到其他设备的更改，已自动更新');
@@ -334,9 +321,7 @@ async function syncFromServer() {
       }
       setSyncStatus('green', '已同步');
     }
-  } catch (e) {
-    setSyncStatus('red', '未连接');
-  }
+  } catch (e) { setSyncStatus('red', '未连接'); }
   return false;
 }
 
@@ -351,9 +336,7 @@ function startSync() {
     if (!changed) loadLocalFallback();
     render();
     syncToServer();
-    setInterval(async () => {
-      await syncFromServer();
-    }, SYNC_INTERVAL);
+    setInterval(async () => { await syncFromServer(); }, SYNC_INTERVAL);
   });
 }
 
@@ -364,17 +347,14 @@ async function loadFromServer() {
     if (json.success && json.data && json.data.data) {
       const sd = json.data.data;
       if (sd.dailyData && sd.dailyData.length > 0) {
-        // 服务端数据与 ORIGINAL_DATA 按日期合并，服务端优先
         const serverMap = {};
         sd.dailyData.forEach(d => { serverMap[d.d] = d; });
-        const merged = [];
         const allDates = new Set();
         sd.dailyData.forEach(d => allDates.add(d.d));
         (ORIGINAL_DATA || []).forEach(d => allDates.add(d.d));
-        Array.from(allDates).sort().forEach(date => {
-          merged.push(serverMap[date] ? {...serverMap[date]} : {...ORIGINAL_DATA.find(d => d.d === date)});
-        });
-        dailyData = merged;
+        dailyData = Array.from(allDates).sort().map(date =>
+          serverMap[date] ? {...serverMap[date]} : {...ORIGINAL_DATA.find(d => d.d === date)}
+        );
         // 兼容旧格式：weeklyUtils → monthlyWater
         if (sd.monthlyWater) {
           monthlyWater = sd.monthlyWater;
@@ -387,14 +367,9 @@ async function loadFromServer() {
         } else {
           monthlyWater = { "2026-06": 66, "2026-07": 0 };
         }
-        // 兼容旧格式：initBalance → monthlyBudgets
-        if (sd.monthlyBudgets) {
-          monthlyBudgets = sd.monthlyBudgets;
-        } else if (sd.initBalance) {
-          monthlyBudgets = { '2026-06': sd.initBalance, '2026-07': sd.initBalance };
-        } else {
-          monthlyBudgets = { '2026-06': 2370, '2026-07': 2370 };
-        }
+        if (sd.monthlyBudgets) monthlyBudgets = sd.monthlyBudgets;
+        else if (sd.initBalance) monthlyBudgets = { '2026-06': sd.initBalance, '2026-07': sd.initBalance };
+        else monthlyBudgets = { '2026-06': 2370, '2026-07': 2370 };
         const savedMonth = localStorage.getItem(STORAGE_KEY + '_month');
         currentMonth = savedMonth || sd.currentMonth || getAvailableMonths()[0] || "2026-06";
         lastSavedHash = computeHash();
@@ -403,9 +378,7 @@ async function loadFromServer() {
       }
     }
     setSyncStatus('yellow', '无服务端数据');
-  } catch (e) {
-    setSyncStatus('yellow', '离线模式');
-  }
+  } catch (e) { setSyncStatus('yellow', '离线模式'); }
   return false;
 }
 
@@ -429,7 +402,6 @@ function loadLocalFallback() {
       }
       monthlyBudgets = p.monthlyBudgets || { '2026-06': 2370, '2026-07': 2370 };
       currentMonth = localStorage.getItem(STORAGE_KEY + '_month') || p.currentMonth || '2026-06';
-      // 合并 localStorage 数据与 ORIGINAL_DATA（本地优先，但用 ORIGINAL_DATA 补缺）
       if (localData.length > 0) {
         const localMap = {};
         localData.forEach(d => { localMap[d.d] = d; });
@@ -452,9 +424,7 @@ function loadLocalFallback() {
 // ========== SAVE ==========
 function saveData() {
   localStorage.setItem(STORAGE_KEY + '_month', currentMonth);
-		localStorage.setItem(STORAGE_KEY, JSON.stringify({
-    data: dailyData, monthlyWater, monthlyBudgets, currentMonth
-  }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ data: dailyData, monthlyWater, monthlyBudgets, currentMonth }));
   isLocalChange = true;
   syncToServer().then(() => triggerExcelAutoSync());
 }
@@ -465,11 +435,10 @@ function triggerExcelAutoSync() {
   clearTimeout(_excelSyncTimer);
   _excelSyncTimer = setTimeout(() => {
     toast('正在同步到 Excel ...');
-    // 用服务器端生成的 Excel（更可靠的格式）
     fetchExcelFromServer().then(ok => {
       if (!ok) {
         toast('正在本地生成 Excel ...');
-        exportExcel(); // 服务端不行则用客户端生成
+        exportExcel();
       } else {
         toast('Excel 已同步到本地');
       }
@@ -477,7 +446,6 @@ function triggerExcelAutoSync() {
   }, 1500);
 }
 
-// 从服务器下载 Excel 文件（云端生成 → 本地保存）
 async function fetchExcelFromServer() {
   try {
     const res = await fetch('/api/export-excel');
@@ -516,22 +484,16 @@ function recalc() {
     const month = d.d.slice(0, 7);
     d.fs = Math.round((d.fw + d.fh) * 100) / 100;
     d.total = Math.round((d.fs + d.t + d.o) * 100) / 100;
-    // 月度边界：判断上一行是否跨月
     let prevRem;
     if (i === 0) {
       prevRem = monthlyBudgets[month] || 0;
     } else {
       const prevMonth = dailyData[i-1].d.slice(0, 7);
-      if (month !== prevMonth && monthlyBudgets[month]) {
-        prevRem = monthlyBudgets[month]; // 跨月时使用当月预算
-      } else {
-        prevRem = dailyData[i-1].rem;
-      }
+      if (month !== prevMonth && monthlyBudgets[month]) prevRem = monthlyBudgets[month];
+      else prevRem = dailyData[i-1].rem;
     }
-    // 月末扣除当月水电
     const utilsToday = d.d === monthLastDay[month] ? (parseFloat(monthlyWater[month]) || 0) : 0;
-    const dayExpense = Math.round((d.total + utilsToday) * 100) / 100;
-    d.rem = Math.round((prevRem - dayExpense) * 100) / 100;
+    d.rem = Math.round((prevRem - Math.round((d.total + utilsToday) * 100) / 100) * 100) / 100;
   }
 }
 
@@ -542,7 +504,6 @@ function getMonthStartBalance(monthKey) {
 function getMonthSummary(monthKey) {
   const monthData = dailyData.filter(d => d.d.startsWith(monthKey));
   const monthUtils = parseFloat(monthlyWater[monthKey]) || 0;
-
   const dailyTotals = monthData.map(d => d.total);
   const withData = monthData.filter(d => d.total > 0);
   const totalExpense = dailyTotals.reduce((s,v) => s+v, 0) + monthUtils;
@@ -553,7 +514,6 @@ function getMonthSummary(monthKey) {
   const lastDay = monthData.length > 0 ? monthData[monthData.length-1] : null;
   const curBalance = lastDay ? lastDay.rem : startBalance;
   const usageRatio = startBalance > 0 ? (totalExpense / startBalance) * 100 : 0;
-
   let food = 0, transport = 0, other = 0;
   monthData.forEach(d => { food += d.fs; transport += d.t; other += d.o; });
   const catTotal = food + transport + monthUtils + other;
@@ -563,14 +523,10 @@ function getMonthSummary(monthKey) {
     { n: '水电', amt: Math.round(monthUtils*100)/100, pct: catTotal > 0 ? Math.round(monthUtils/catTotal*1000)/10 : 0, color: CAT_COLORS.utilities },
     { n: '其他', amt: Math.round(other*100)/100, pct: catTotal > 0 ? Math.round(other/catTotal*1000)/10 : 0, color: CAT_COLORS.other }
   ];
-
   return {
-    totalExpense: Math.round(totalExpense*100)/100,
-    dailyAvg: Math.round(dailyAvg*100)/100, recordDays,
-    maxDaily: Math.round(maxDaily*100)/100,
-    curBalance: Math.round(curBalance*100)/100,
-    usageRatio: Math.round(usageRatio*10)/10,
-    cats, totalUtils: Math.round(monthUtils*100)/100, budget: startBalance
+    totalExpense: Math.round(totalExpense*100)/100, dailyAvg: Math.round(dailyAvg*100)/100, recordDays,
+    maxDaily: Math.round(maxDaily*100)/100, curBalance: Math.round(curBalance*100)/100,
+    usageRatio: Math.round(usageRatio*10)/10, cats, totalUtils: Math.round(monthUtils*100)/100, budget: startBalance
   };
 }
 
@@ -579,25 +535,16 @@ function getAllMonthsSummary() {
   dailyData.forEach(d => {
     const m = d.d.slice(0, 7);
     if (!monthMap[m]) monthMap[m] = { label: m, f: 0, t: 0, u: 0, o: 0, days: 0, total: 0 };
-    monthMap[m].f += d.fs;
-    monthMap[m].t += d.t;
-    monthMap[m].o += d.o;
-    monthMap[m].total += d.total;
+    monthMap[m].f += d.fs; monthMap[m].t += d.t; monthMap[m].o += d.o; monthMap[m].total += d.total;
     if (d.total > 0) monthMap[m].days++;
   });
   Object.keys(monthlyWater).forEach(m => {
-    if (monthMap[m]) {
-      const uVal = parseFloat(monthlyWater[m]) || 0;
-      monthMap[m].u = uVal;
-      monthMap[m].total += uVal;
-    }
+    if (monthMap[m]) { const u = parseFloat(monthlyWater[m])||0; monthMap[m].u = u; monthMap[m].total += u; }
   });
   return Object.values(monthMap).map(m => ({
     ...m, f: Math.round(m.f*100)/100, t: Math.round(m.t*100)/100,
-    u: Math.round(m.u*100)/100, o: Math.round(m.o*100)/100,
-    total: Math.round(m.total*100)/100,
-    display: getMonthDisplay(m.label),
-    dailyAvg: m.days > 0 ? Math.round(m.total/m.days*100)/100 : 0,
+    u: Math.round(m.u*100)/100, o: Math.round(m.o*100)/100, total: Math.round(m.total*100)/100,
+    display: getMonthDisplay(m.label), dailyAvg: m.days > 0 ? Math.round(m.total/m.days*100)/100 : 0,
     budget: getMonthStartBalance(m.label)
   })).sort((a,b) => a.label.localeCompare(b.label));
 }
@@ -630,24 +577,19 @@ function render() {
   renderMonthSelector();
   const autoBk = localStorage.getItem('finance_dashboard_autobackup');
   document.getElementById('autoBackupCheck').checked = autoBk === '1';
-
-  // Update balance input for current month
   document.getElementById('initBalanceInput').value = (monthlyBudgets[currentMonth] || 0).toFixed(2);
   document.getElementById('balanceLabel').textContent = getMonthDisplay(currentMonth) + '初始余额';
 
   const s = getMonthSummary(currentMonth);
-
-  // Cards
   document.getElementById('cardsContainer').innerHTML = `
     <div class="card red"><div class="label">${getMonthDisplay(currentMonth)}总支出</div><div class="value">¥${s.totalExpense.toFixed(2)}</div><div class="sub">含水电 ¥${s.totalUtils.toFixed(2)}</div></div>
     <div class="card orange"><div class="label">日均支出</div><div class="value">¥${s.dailyAvg.toFixed(2)}</div><div class="sub">含水电</div></div>
-    <div class="card purple"><div class="label">单日最高</div><div class="value">¥${s.maxDaily.toFixed(2)}</div><div class="sub">最高单日消费</div></div>
-    <div class="card blue"><div class="label">月初余额</div><div class="value">¥${s.budget.toFixed(2)}</div><div class="sub">含上月结余</div></div>
-    <div class="card green"><div class="label">当前余额</div><div class="value">¥${s.curBalance.toFixed(2)}</div><div class="sub">剩余可支配</div></div>
-    <div class="card teal"><div class="label">使用比率</div><div class="value">${s.usageRatio}%</div><div class="sub">已用 / 月初</div></div>
+    <div class="card purple"><div class="label">单日最高</div><div class="value">¥${s.maxDaily.toFixed(2)}</div></div>
+    <div class="card blue"><div class="label">月初余额</div><div class="value">¥${s.budget.toFixed(2)}</div></div>
+    <div class="card green"><div class="label">当前余额</div><div class="value">¥${s.curBalance.toFixed(2)}</div></div>
+    <div class="card teal"><div class="label">使用比率</div><div class="value">${s.usageRatio}%</div></div>
   `;
 
-  // Chart month labels
   document.getElementById('pieChartMonth').textContent = getMonthDisplay(currentMonth);
   document.getElementById('barChartMonth').textContent = getMonthDisplay(currentMonth);
   document.getElementById('lineChartMonth').textContent = getMonthDisplay(currentMonth);
@@ -661,48 +603,40 @@ function render() {
     </div>
     <div class="wu-item" style="background:#e6fffb;"><div class="wu-label">本月合计</div><div class="wu-total">¥${mwVal.toFixed(2)}</div></div>`;
 
-  // Daily table (filtered by current month)
   const monthIndices = dailyData.reduce((acc, d, i) => {
     if (d.d.startsWith(currentMonth)) acc.push(i);
     return acc;
   }, []);
   const monthData = monthIndices.map(i => dailyData[i]);
 
+  // Mobile daily table: simplified columns (no separate fw/fh, just food total)
   document.getElementById('dailyBody').innerHTML = monthIndices.length > 0
     ? monthIndices.map(origIdx => {
         const d = dailyData[origIdx];
         const h = d.total > 0;
         return `<tr>
           <td><button class="del-btn" onclick="deleteRow(${origIdx})">×</button></td>
-          <td><input class="editable" type="text" value="${d.d}" onchange="editDate(${origIdx}, this.value)"></td>
-          <td>${d.w?'周'+d.w:''}</td>
-          <td><input class="editable" type="number" step="0.01" value="${d.fw||''}" onchange="editCell(${origIdx},'fw',this.value)"></td>
-          <td><input class="editable" type="number" step="0.01" value="${d.fh||''}" onchange="editCell(${origIdx},'fh',this.value)"></td>
-          <td class="calc">${d.fs?'¥'+d.fs.toFixed(2):'-'}</td>
-          <td><input class="editable" type="number" step="0.01" value="${d.t||''}" onchange="editCell(${origIdx},'t',this.value)"></td>
-          <td><input class="editable" type="number" step="0.01" value="${d.o||''}" onchange="editCell(${origIdx},'o',this.value)"></td>
+          <td><input class="editable" type="text" value="${d.d}" onchange="editDate(${origIdx}, this.value)" style="width:70px"></td>
+          <td><input class="editable" type="number" step="0.01" value="${d.fs||''}" onchange="editFood(${origIdx}, this.value)" style="width:50px"></td>
+          <td><input class="editable" type="number" step="0.01" value="${d.t||''}" onchange="editCell(${origIdx},'t',this.value)" style="width:50px"></td>
+          <td><input class="editable" type="number" step="0.01" value="${d.o||''}" onchange="editCell(${origIdx},'o',this.value)" style="width:50px"></td>
           <td class="calc"><strong>${h?'¥'+d.total.toFixed(2):'-'}</strong></td>
           <td class="calc">¥${d.rem.toFixed(2)}</td>
-          <td><input class="editable editable-note" type="text" value="${d.note||''}" onchange="editCell(${origIdx},'note',this.value)" placeholder="备注"></td>
+          <td><input class="editable editable-note" type="text" value="${d.note||''}" onchange="editCell(${origIdx},'note',this.value)" placeholder="备注" style="width:60px"></td>
         </tr>`;
       }).join('')
-    : '<tr><td colspan="11" style="color:#999;padding:12px;">暂无数据</td></tr>';
+    : '<tr><td colspan="8" style="color:#999;padding:12px;">暂无数据</td></tr>';
 
-  // Monthly table (ALL months)
   const allMonths = getAllMonthsSummary();
   document.getElementById('monthlyBody').innerHTML = allMonths.length
-    ? allMonths.map(m => `<tr><td><strong>${m.display}</strong></td><td>${m.days}天</td><td>¥${m.budget.toFixed(2)}</td><td>¥${m.f.toFixed(2)}</td><td>¥${m.t.toFixed(2)}</td><td>${m.u?'¥'+m.u.toFixed(2):'-'}</td><td>¥${m.o.toFixed(2)}</td><td><strong>¥${m.total.toFixed(2)}</strong></td><td>¥${m.dailyAvg.toFixed(2)}</td></tr>`).join('')
-    : '<tr><td colspan="9" style="color:#999;padding:12px;">暂无数据</td></tr>';
+    ? allMonths.map(m => `<tr><td><strong>${m.display}</strong></td><td>${m.days}天</td><td>¥${m.f.toFixed(2)}</td><td>¥${m.t.toFixed(2)}</td><td>${m.u?'¥'+m.u.toFixed(2):'-'}</td><td>¥${m.o.toFixed(2)}</td><td><strong>¥${m.total.toFixed(2)}</strong></td><td>¥${m.dailyAvg.toFixed(2)}</td></tr>`).join('')
+    : '<tr><td colspan="8" style="color:#999;padding:12px;">暂无数据</td></tr>';
 
-  // Weekly table (all weeks)
   const weekMap = {};
   dailyData.forEach(d => {
     const wl = getWeekLabel(d.d);
     if (!weekMap[wl]) weekMap[wl] = { label: wl, f: 0, t: 0, u: 0, o: 0, total: 0 };
-    weekMap[wl].f += d.fs;
-    weekMap[wl].t += d.t;
-    weekMap[wl].o += d.o;
-    weekMap[wl].total += d.total;
+    weekMap[wl].f += d.fs; weekMap[wl].t += d.t; weekMap[wl].o += d.o; weekMap[wl].total += d.total;
   });
   // 按月水电归属到月末所在周
   const monthLastDay = {};
@@ -722,8 +656,7 @@ function render() {
     }
   });
   const weeks = Object.values(weekMap).map(w => ({
-    ...w, f: Math.round(w.f*100)/100, t: Math.round(w.t*100)/100,
-    u: Math.round(w.u*100)/100, o: Math.round(w.o*100)/100, total: Math.round(w.total*100)/100
+    ...w, f: Math.round(w.f*100)/100, t: Math.round(w.t*100)/100, u: Math.round(w.u*100)/100, o: Math.round(w.o*100)/100, total: Math.round(w.total*100)/100
   }));
   weeks.sort((a,b) => a.label.localeCompare(b.label));
   document.getElementById('weeklyBody').innerHTML = weeks.length
@@ -748,7 +681,7 @@ function renderCharts(s, monthData) {
   chartInstances.pie = new Chart(document.getElementById('pieChart'), {
     type: 'doughnut',
     data: { labels: s.cats.map(c=>c.n), datasets: [{ data: s.cats.map(c=>c.amt), backgroundColor: s.cats.map(c=>c.color), borderWidth: 2 }] },
-    options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { padding: 12, usePointStyle: true, font: { size: 10 } } }, tooltip: { callbacks: { label: ctx => ctx.label + ': ¥' + ctx.parsed.toFixed(2) + ' (' + s.cats[ctx.dataIndex].pct + '%)' } } } }
+    options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { padding: 10, usePointStyle: true, font: { size: 10 } } }, tooltip: { callbacks: { label: ctx => ctx.label + ': ¥' + ctx.parsed.toFixed(2) + ' (' + s.cats[ctx.dataIndex].pct + '%)' } } } }
   });
   const wd = monthData.filter(d => d.total > 0 || d.fs > 0);
   chartInstances.bar = new Chart(document.getElementById('barChart'), {
@@ -758,16 +691,25 @@ function renderCharts(s, monthData) {
       { label: '交通', data: wd.map(d=>d.t), backgroundColor: CAT_COLORS.transport, borderRadius: 2 },
       { label: '其他', data: wd.map(d=>d.o), backgroundColor: CAT_COLORS.other, borderRadius: 2 }
     ]},
-    options: { responsive: true, maintainAspectRatio: true, scales: { x: { stacked: true, grid: { display: false }, ticks: { font: { size: 9 } } }, y: { stacked: true, beginAtZero: true, grid: { color: '#f0f0f0' }, ticks: { font: { size: 9 } } } }, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 8, font: { size: 10 } } }, tooltip: { callbacks: { footer: items => '合计: ¥' + wd[items[0].dataIndex].total.toFixed(2) } } } }
+    options: { responsive: true, maintainAspectRatio: true, scales: { x: { stacked: true, grid: { display: false }, ticks: { font: { size: 9 } } }, y: { stacked: true, beginAtZero: true, grid: { color: '#f0f0f0' }, ticks: { font: { size: 9 } } } }, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 6, font: { size: 10 } } }, tooltip: { callbacks: { footer: items => '合计: ¥' + wd[items[0].dataIndex].total.toFixed(2) } } } }
   });
   chartInstances.line = new Chart(document.getElementById('lineChart'), {
     type: 'line',
     data: { labels: monthData.map(d=>d.d.slice(5)), datasets: [{ label: '余额', data: monthData.map(d=>d.rem), borderColor: '#1890ff', backgroundColor: 'rgba(24,144,255,0.08)', fill: true, tension: 0.3, pointRadius: 2, pointBackgroundColor: '#1890ff', borderWidth: 2 }] },
-    options: { responsive: true, maintainAspectRatio: true, scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 10, font: { size: 9 } } }, y: { beginAtZero: false, grid: { color: '#f0f0f0' }, ticks: { font: { size: 9 } } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => '余额: ¥' + ctx.parsed.y.toFixed(2) } } } }
+    options: { responsive: true, maintainAspectRatio: true, scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 8, font: { size: 9 } } }, y: { beginAtZero: false, grid: { color: '#f0f0f0' }, ticks: { font: { size: 9 } } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => '余额: ¥' + ctx.parsed.y.toFixed(2) } } } }
   });
 }
 
 // ========== EDITING ==========
+function editFood(i, val) {
+  const n = parseFloat(val);
+  if (isNaN(n)) return;
+  // On mobile, we edit fs directly (combined food), reset fw/fh
+  dailyData[i].fs = n;
+  dailyData[i].fw = n;
+  dailyData[i].fh = 0;
+  render();
+}
 function editCell(i, field, val) {
   if (field === 'note') { dailyData[i][field] = val; }
   else { const n = parseFloat(val); dailyData[i][field] = isNaN(n) ? 0 : n; }
@@ -790,7 +732,6 @@ function deleteRow(i) {
 function toLocalDate(year, month, day) {
   return year + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
 }
-
 function addRow() {
   const monthRows = dailyData.filter(d => d.d.startsWith(currentMonth));
   let ds;
@@ -800,9 +741,7 @@ function addRow() {
     const d = new Date(p[0], p[1] - 1, p[2]);
     d.setDate(d.getDate() + 1);
     ds = toLocalDate(d.getFullYear(), d.getMonth() + 1, d.getDate());
-  } else {
-    ds = currentMonth + '-01';
-  }
+  } else { ds = currentMonth + '-01'; }
   const p = ds.split('-').map(Number);
   const dt = new Date(p[0], p[1] - 1, p[2]);
   const w = WEEK_NAMES[dt.getDay() === 0 ? 6 : dt.getDay() - 1];
@@ -827,6 +766,8 @@ function resetData() {
   currentMonth = '2026-06';
   render();
 }
+
+// ========== EXPORT / IMPORT ==========
 function importExcel(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -837,7 +778,6 @@ function importExcel(event) {
       const ws = wb.Sheets['明细'] || wb.Sheets[wb.SheetNames[0]];
       if (!ws) { toast('未找到有效的工作表'); return; }
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-      // 找表头行（包含"饮食-W"的行）
       let headerRow = -1;
       for (let i = 0; i < rows.length; i++) {
         if (rows[i].some(c => String(c).includes('饮食-W'))) { headerRow = i; break; }
@@ -862,16 +802,12 @@ function importExcel(event) {
         if (!rawDate && rawDate !== 0) continue;
         let dateStr;
         if (typeof rawDate === 'number') {
-          // Excel serial date
           const d = XLSX.SSF.parse_date_code(rawDate);
           if (d) dateStr = d.y + '-' + String(d.m).padStart(2,'0') + '-' + String(d.d).padStart(2,'0');
           else continue;
         } else if (rawDate instanceof Date) {
           dateStr = rawDate.toISOString().slice(0,10);
-        } else {
-          dateStr = String(rawDate).slice(0,10);
-        }
-        // 检查是否已有该日期
+        } else { dateStr = String(rawDate).slice(0,10); }
         const existing = dailyData.findIndex(item => item.d === dateStr);
         const fw = parseFloat(row[colMap.fw]) || 0;
         const fh = parseFloat(row[colMap.fh]) || 0;
@@ -881,7 +817,6 @@ function importExcel(event) {
         const wNames = ['一','二','三','四','五','六','日'];
         const dt = new Date(dateStr);
         const w = wNames[dt.getDay() === 0 ? 6 : dt.getDay() - 1];
-
         if (existing >= 0) {
           dailyData[existing].fw = fw; dailyData[existing].fh = fh;
           dailyData[existing].t = t; dailyData[existing].o = o;
@@ -891,9 +826,7 @@ function importExcel(event) {
         }
         imported++;
       }
-      // 按日期排序
       dailyData.sort((a, b) => a.d.localeCompare(b.d));
-      // 提取水电月结算（兼容旧版周结算）
       if (colMap.utils !== undefined) {
         const wbSummary = wb.Sheets['汇总'];
         if (wbSummary) {
@@ -927,11 +860,9 @@ function importExcel(event) {
           }
         }
       }
-      // 更新月份预算
       const months = new Set();
       dailyData.forEach(d => months.add(d.d.slice(0, 7)));
       months.forEach(m => { if (!monthlyBudgets[m]) monthlyBudgets[m] = 2370; });
-      // 切换到最后一个月
       const sortedMonths = Array.from(months).sort();
       currentMonth = sortedMonths[sortedMonths.length - 1];
       render();
@@ -944,8 +875,8 @@ function importExcel(event) {
   reader.readAsArrayBuffer(file);
   event.target.value = '';
 }
+
 function exportCSV() {
-  
   const BOM = '\uFEFF';
   let csv = BOM + '日期,星期,饮食-W,饮食-H,饮食小计,交通,其他,日合计,余额,备注\n';
   dailyData.forEach(d => { csv += `${d.d},周${d.w},${d.fw},${d.fh},${d.fs},${d.t},${d.o},${d.total},${d.rem},"${d.note}"\n`; });
