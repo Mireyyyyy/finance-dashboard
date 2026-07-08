@@ -70,6 +70,30 @@ tbody tr:hover { background: #f5f8ff; }
 .editable-note { text-align: left; }
 .editable.calc { color: #666; font-weight: 500; background: #fafafa; pointer-events: none; }
 td.calc { color: #666; font-weight: 500; background: #fafafa; }
+/* Daily cards */
+.daily-list { display: flex; flex-direction: column; gap: 8px; }
+.daily-card { border: 1px solid #eef0f4; border-radius: 8px; padding: 10px; background: #fff; }
+.daily-card.has-expense { border-left: 3px solid #1890ff; }
+.daily-card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.daily-date { flex: 1; min-width: 0; }
+.daily-week { font-size: 12px; color: #666; background: #f5f7fa; border-radius: 12px; padding: 4px 8px; white-space: nowrap; }
+.daily-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
+.daily-field label, .daily-note label { display: block; font-size: 10px; color: #888; margin-bottom: 3px; }
+.daily-field input, .daily-note input, .daily-date input { width: 100%; border: 1px solid #e5e7eb; background: #fff; border-radius: 6px; padding: 7px 6px; font-size: 13px; outline: none; }
+.daily-field input:focus, .daily-note input:focus, .daily-date input:focus { border-color: #1890ff; box-shadow: 0 0 0 2px rgba(24,144,255,0.16); }
+.daily-totals { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.daily-total-box { background: #fafafa; border-radius: 6px; padding: 7px 8px; }
+.daily-total-box span { display: block; font-size: 10px; color: #888; margin-bottom: 2px; }
+.daily-total-box strong { font-size: 14px; color: #333; }
+.daily-total-box.balance strong { color: #52c41a; }
+.daily-note { margin-top: 2px; }
+.daily-card .del-btn { opacity: .55; min-width: 30px; min-height: 30px; border-radius: 15px; background: #fff1f0; color: #cf1322; }
+.daily-empty { color: #999; padding: 14px; text-align: center; background: #fafafa; border-radius: 8px; }
+#dailySection .table-wrap { overflow: visible; margin: 0; }
+#dailySection table { min-width: 0; border-collapse: separate; border-spacing: 0 8px; }
+#dailySection thead { display: none; }
+#dailySection tbody, #dailySection tr, #dailySection td { display: block; width: 100%; }
+#dailySection tbody td { padding: 0; border: 0; text-align: left; }
 /* Weekly Utils */
 .weekly-utils { display: flex; gap: 8px; flex-wrap: wrap; }
 .weekly-utils .wu-item { background: #fafafa; border-radius: 6px; padding: 8px 10px; text-align: center; flex: 1; min-width: calc(50% - 8px); }
@@ -614,18 +638,29 @@ function render() {
     ? monthIndices.map(origIdx => {
         const d = dailyData[origIdx];
         const h = d.total > 0;
-        return `<tr>
-          <td><button class="del-btn" onclick="deleteRow(${origIdx})">×</button></td>
-          <td><input class="editable" type="text" value="${d.d}" onchange="editDate(${origIdx}, this.value)" style="width:70px"></td>
-          <td><input class="editable" type="number" step="0.01" value="${d.fs||''}" onchange="editFood(${origIdx}, this.value)" style="width:50px"></td>
-          <td><input class="editable" type="number" step="0.01" value="${d.t||''}" onchange="editCell(${origIdx},'t',this.value)" style="width:50px"></td>
-          <td><input class="editable" type="number" step="0.01" value="${d.o||''}" onchange="editCell(${origIdx},'o',this.value)" style="width:50px"></td>
-          <td class="calc"><strong>${h?'¥'+d.total.toFixed(2):'-'}</strong></td>
-          <td class="calc">¥${d.rem.toFixed(2)}</td>
-          <td><input class="editable editable-note" type="text" value="${d.note||''}" onchange="editCell(${origIdx},'note',this.value)" placeholder="备注" style="width:60px"></td>
-        </tr>`;
+        return `<tr><td>
+          <div class="daily-card ${h ? 'has-expense' : ''}">
+            <div class="daily-card-top">
+              <div class="daily-date">
+                <input type="date" value="${d.d}" onchange="editDate(${origIdx}, this.value)">
+              </div>
+              <span class="daily-week">${d.w ? '&#21608;' + d.w : ''}</span>
+              <button class="del-btn" onclick="deleteRow(${origIdx})">&times;</button>
+            </div>
+            <div class="daily-grid">
+              <div class="daily-field"><label>&#39278;&#39135;</label><input type="number" step="0.01" value="${d.fs||''}" onchange="editFood(${origIdx}, this.value)"></div>
+              <div class="daily-field"><label>&#20132;&#36890;</label><input type="number" step="0.01" value="${d.t||''}" onchange="editCell(${origIdx},'t',this.value)"></div>
+              <div class="daily-field"><label>&#20854;&#20182;</label><input type="number" step="0.01" value="${d.o||''}" onchange="editCell(${origIdx},'o',this.value)"></div>
+            </div>
+            <div class="daily-totals">
+              <div class="daily-total-box"><span>&#26085;&#21512;&#35745;</span><strong>${h ? '&yen;' + d.total.toFixed(2) : '-'}</strong></div>
+              <div class="daily-total-box balance"><span>&#20313;&#39069;</span><strong>&yen;${d.rem.toFixed(2)}</strong></div>
+            </div>
+            <div class="daily-note"><label>&#22791;&#27880;</label><input type="text" value="${d.note||''}" onchange="editCell(${origIdx},'note',this.value)" placeholder="&#22791;&#27880;"></div>
+          </div>
+        </td></tr>`;
       }).join('')
-    : '<tr><td colspan="8" style="color:#999;padding:12px;">暂无数据</td></tr>';
+    : '<tr><td><div class="daily-empty">&#26242;&#26080;&#25968;&#25454;</div></td></tr>';
 
   const allMonths = getAllMonthsSummary();
   document.getElementById('monthlyBody').innerHTML = allMonths.length
